@@ -161,7 +161,7 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
               propertyOrdering: ["name", "description", "estimatedPrice", "tags", "links", "images"]
             }
           },
-          systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format. For each gift, provide relevant purchase links and product image URLs when possible."
+          systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format. For each gift, you should provide relevant and valid purchase links and product image URLs."
         }
       });
 
@@ -209,15 +209,15 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
     '- A brief description explaining why it\'s a great gift',
     '- An estimated price range',
     '- Relevant tags/keywords',
-    '- Purchase links (URLs to major retailers like Amazon, Target, etc.)',
-    '- Product image URLs when available',
+    '- Valid purchase links (URLs to major retailers like Amazon, Target, Walmart, Bestbuy, other popular online retailers etc.)',
+    '- Valid product image URLs when available',
     '',
     'Ensure each gift idea:',
     '- Is creative and unique',
     '- Is relevant to the provided criteria',
     '- Is a tangible product or a well-defined experience',
-    '- Includes at least 1-2 purchase links',
-    '- Has relevant product images when possible'
+    '- Includes at least 1-2 valid purchase links',
+    '- Has relevant valid product images urls'
   ];
 
   if (request.previouslyGeneratedGifts?.length) {

@@ -291,9 +291,9 @@ export default function Home() {
                         alt={gift.name} 
                         width={500} 
                         height={300} 
+                        unoptimized
                         className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
                         onError={(e) => {
-                          // Hide image if it fails to load
                           e.currentTarget.style.display = 'none';
                         }}
                       />
