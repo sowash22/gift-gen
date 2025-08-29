@@ -35,29 +35,29 @@ export const analytics = {
   },
 
   // Form interactions
-  trackFormSubmission: (formType: string, hasDescription: boolean, hasImages: boolean) => {
+  trackFormSubmission: (formType: string, hasDescription: boolean) => {
     trackEvent('form_submit', 'engagement', formType, 1);
     trackEvent('form_field_usage', 'engagement', 'description', hasDescription ? 1 : 0);
-    trackEvent('form_field_usage', 'engagement', 'images', hasImages ? 1 : 0);
   },
 
-  // Name generation
-  trackNameGeneration: (petTypes: string[], nameStyles: string[], petCharacteristics: string[]) => {
-    trackEvent('name_generation', 'engagement', 'generate_names', 1);
-    trackEvent('preferences_used', 'engagement', 'pet_types', petTypes.length);
-    trackEvent('preferences_used', 'engagement', 'name_styles', nameStyles.length);
-    trackEvent('preferences_used', 'engagement', 'pet_characteristics', petCharacteristics.length);
+  // Gift generation
+  trackGiftGeneration: (recipient: string, occasion: string, vibe: string, budget: string) => {
+    trackEvent('gift_generation', 'engagement', 'generate_gifts', 1);
+    trackEvent('preferences_used', 'engagement', 'recipient', recipient ? 1 : 0);
+    trackEvent('preferences_used', 'engagement', 'occasion', occasion ? 1 : 0);
+    trackEvent('preferences_used', 'engagement', 'vibe', vibe ? 1 : 0);
+    trackEvent('preferences_used', 'engagement', 'budget', budget ? 1 : 0);
   },
 
-  // Name feedback
-  trackNameFeedback: (feedback: 'love' | 'like' | 'dislike', name: string) => {
-    trackEvent('name_feedback', 'engagement', feedback, 1);
-    trackEvent('name_interaction', 'engagement', name, 1);
+  // Gift feedback
+  trackGiftFeedback: (feedback: 'love' | 'like' | 'dislike', gift: string) => {
+    trackEvent('gift_feedback', 'engagement', feedback, 1);
+    trackEvent('gift_interaction', 'engagement', gift, 1);
   },
 
-  // Copy name
-  trackNameCopy: (name: string) => {
-    trackEvent('name_copy', 'engagement', name, 1);
+  // Copy gift
+  trackGiftCopy: (gift: string) => {
+    trackEvent('gift_copy', 'engagement', gift, 1);
   },
 
   // Theme toggle
@@ -65,19 +65,14 @@ export const analytics = {
     trackEvent('theme_change', 'preferences', newTheme, 1);
   },
 
-  // Shortlist interactions
-  trackShortlistAction: (action: 'view' | 'add' | 'remove', name?: string) => {
-    trackEvent('shortlist_action', 'engagement', `${action}${name ? `_${name}` : ''}`, 1);
+  // Wishlist interactions
+  trackWishlistAction: (action: 'view' | 'add' | 'remove', gift?: string) => {
+    trackEvent('wishlist_action', 'engagement', `${action}${gift ? `_${gift}` : ''}`, 1);
   },
 
   // Voice input
   trackVoiceInput: (action: 'start' | 'stop') => {
     trackEvent('voice_input', 'engagement', action, 1);
-  },
-
-  // Image upload
-  trackImageUpload: (count: number) => {
-    trackEvent('image_upload', 'engagement', 'upload_count', count);
   },
 
   // Page interactions
@@ -106,8 +101,6 @@ export const analytics = {
     if (hasText && textLength) {
       trackEvent('feedback_text_length', 'engagement', 'text_feedback', textLength);
     }
-
-
   },
 
   // Feedback modal interactions
