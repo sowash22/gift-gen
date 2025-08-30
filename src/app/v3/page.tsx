@@ -1,584 +1,216 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Moon, Sun, Mic, Sparkles, RotateCcw, Plus, Copy, Heart, Share2, Zap, MicOff } from 'lucide-react';
+import { useState, useEffect, useRef, FC, useCallback } from 'react';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
+import { Nunito } from 'next/font/google';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Link as LinkIcon, Gift as GiftIcon, X, Check, ArrowLeft, Sun, Moon, Search } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
-interface Gift {
-  id: string;
-  name: string;
-  description: string;
-  estimatedPrice?: string;
-  tags?: string[];
-  links?: string[];
-  feedback: 'love' | 'like' | 'dislike' | null;
-}
+const nunito = Nunito({ subsets: ['latin'] });
 
-export default function ModernGiftGenerator() {
-  const [recipient, setRecipient] = useState('');
-  const [occasion, setOccasion] = useState('');
-  const [vibe, setVibe] = useState<string[]>([]);
-  const [budget, setBudget] = useState<string[]>([]);
-  const [description, setDescription] = useState('');
+// --- Interfaces & Types ---
+interface Gift { id: string; name: string; description: string; estimatedPrice?: string; tags?: string[]; links?: string[]; images?: string[]; }
+
+// --- Reusable Components ---
+const Background = () => (
+  <div className="absolute inset-0 z-0 overflow-hidden bg-white dark:bg-gray-900">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-br from-sky-100 via-transparent to-transparent dark:from-sky-900/30" />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute bottom-0 right-0 w-1/2 h-full bg-gradient-to-tl from-rose-100 via-transparent to-transparent dark:from-rose-900/30" />
+  </div>
+);
+
+const ImageWithFallback: FC<{ src: string; alt: string; className?: string; }> = ({ src, alt, ...props }) => {
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => { setHasError(false); }, [src]);
+
+  if (hasError || !src) {
+    return (
+      <div className={`w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 dark:text-gray-500 ${props.className}`}>
+        <GiftIcon className="w-1/4 h-1/4 opacity-50" />
+      </div>
+    );
+  }
+
+  return <Image src={src} alt={alt} onError={() => setHasError(true)} {...props} layout="fill" objectFit="cover" />;
+};
+
+// --- Main Component ---
+export default function Home() {
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({ recipient: '', occasion: '', vibe: [] as string[] });
   const [generatedGifts, setGeneratedGifts] = useState<Gift[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [theme, setTheme] = useState('dark');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
+  const [isHolding, setIsHolding] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [noResults, setNoResults] = useState(false);
+  const [activeGift, setActiveGift] = useState<Gift | null>(null);
+  const holdTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Mock data - replace with your environment variables
-  const recipients = [
-    ['mom', '👩‍💼'], ['dad', '👨‍💼'], ['partner', '💕'], ['friend', '🤝'], 
-    ['sibling', '👫'], ['colleague', '💼'], ['child', '🧒'], ['grandparent', '👴']
-  ];
-  const occasions = [
-    ['birthday', '🎂'], ['anniversary', '💍'], ['wedding', '👰'], ['graduation', '🎓'],
-    ['holiday', '🎄'], ['thank you', '🙏'], ['apology', '😅'], ['just because', '✨']
-  ];
-  const vibes = [
-    ['thoughtful', '💭'], ['fun', '🎉'], ['luxury', '✨'], ['practical', '🔧'],
-    ['creative', '🎨'], ['tech', '📱'], ['wellness', '🧘'], ['adventure', '🏔️']
-  ];
-  const budgets = [
-    ['under $25', '💵'], ['$25-50', '💰'], ['$50-100', '💳'], ['$100+', '💎']
+  const { theme, setTheme } = useTheme();
+
+  const steps = [
+    { key: 'recipient', question: "Who are we celebrating?", options: (process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'occasion', question: "What's the special day?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'vibe', question: "What's the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
   ];
 
-  const startListening = () => {
-    setIsListening(true);
-    setTimeout(() => {
-      setIsListening(false);
-      setDescription('My partner loves hiking and artisan coffee. They collect vintage books and enjoy weekend farmers markets.');
-    }, 3000);
+  const handleSelect = (key: keyof typeof form, value: string) => {
+    if (key === 'vibe') {
+      setForm(prev => ({ ...prev, vibe: prev.vibe.includes(value) ? prev.vibe.filter(v => v !== value) : [...prev.vibe, value] }));
+    } else {
+      setForm(prev => ({ ...prev, [key]: value }));
+      setTimeout(() => setStep(s => s + 1), 300);
+    }
   };
 
-  const generateMockGifts = () => {
-    const giftOptions = [
-      {
-        id: '1',
-        name: 'Personalized Star Map',
-        description: 'A custom star map showing the night sky from a special date and location, beautifully framed in minimalist design.',
-        estimatedPrice: '$45-65',
-        tags: ['Personalized', 'Romantic', 'Art'],
-        links: ['https://example.com/star-map'],
-        feedback: null
-      },
-      {
-        id: '2',
-        name: 'Artisanal Coffee Subscription',
-        description: 'Monthly delivery of small-batch, ethically sourced coffee beans from around the world with tasting notes.',
-        estimatedPrice: '$25-40/month',
-        tags: ['Subscription', 'Gourmet', 'Experience'],
-        links: ['https://example.com/coffee-sub'],
-        feedback: null
-      },
-      {
-        id: '3',
-        name: 'Smart Plant Monitor',
-        description: 'Elegant device that monitors soil moisture, light, and temperature to keep plants thriving with app notifications.',
-        estimatedPrice: '$35-50',
-        tags: ['Tech', 'Plants', 'Smart Home'],
-        links: ['https://example.com/plant-monitor'],
-        feedback: null
-      },
-      {
-        id: '4',
-        name: 'Handcrafted Leather Journal',
-        description: 'Premium leather-bound journal with recycled paper, perfect for thoughts, sketches, and daily reflections.',
-        estimatedPrice: '$45-70',
-        tags: ['Handmade', 'Writing', 'Sustainable'],
-        links: ['https://example.com/journal'],
-        feedback: null
-      },
-      {
-        id: '5',
-        name: 'Wireless Charging Pad',
-        description: 'Sleek bamboo wireless charger that blends seamlessly with any desk or nightstand setup.',
-        estimatedPrice: '$30-45',
-        tags: ['Tech', 'Sustainable', 'Minimal'],
-        links: ['https://example.com/charger'],
-        feedback: null
-      }
-    ];
-
-    // Return 3 random gifts
-    return giftOptions.sort(() => 0.5 - Math.random()).slice(0, 3);
-  };
-
-  const generateGifts = async () => {
+  const generateGifts = useCallback(async () => {
     setIsGenerating(true);
-    
-    setTimeout(() => {
-      const mockGifts = generateMockGifts();
-      setGeneratedGifts(mockGifts);
-      setIsGenerating(false);
-      setShowSuccess(true);
-      setToast({ message: '✨ Perfect gifts found!', type: 'success' });
-      setTimeout(() => {
-        setShowSuccess(false);
-        setToast(null);
-        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 2000);
-    }, 2500);
-  };
+    setIsHolding(false);
+    setNoResults(false);
+    try {
+      const response = await fetch('/api/generate-gifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, description: '' }) });
+      if (!response.ok) throw new Error('API Error');
+      const data = await response.json();
+      if (data.gifts && data.gifts.length > 0) {
+        setGeneratedGifts(data.gifts.map((g: any) => ({ ...g, id: g.id || uuidv4() })));
+        setShowResults(true);
+      } else {
+        setNoResults(true);
+        setShowResults(true);
+      }
+    } catch (error) { console.error("Failed to generate gifts:", error); setNoResults(true); setShowResults(true); }
+    finally { setIsGenerating(false); }
+  }, [form]);
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    if (isHolding) timeoutId = setTimeout(generateGifts, 1500);
+    return () => { if (timeoutId) clearTimeout(timeoutId); };
+  }, [isHolding, generateGifts]);
+
+  const startHold = () => { if (step === steps.length - 1) setIsHolding(true); };
+  const endHold = () => setIsHolding(false);
+  const prevStep = () => setStep(s => s > 0 ? s - 1 : 0);
 
   const restart = () => {
-    setRecipient('');
-    setOccasion('');
-    setVibe([]);
-    setBudget([]);
-    setDescription('');
-    setGeneratedGifts([]);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setStep(0); setForm({ recipient: '', occasion: '', vibe: [] }); setGeneratedGifts([]); setShowResults(false); setActiveGift(null); setNoResults(false);
   };
 
-  const canGenerate = () => {
-    return recipient !== '' && occasion !== '';
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setToast({ message: 'Copied to clipboard!', type: 'success' });
-    setTimeout(() => setToast(null), 2000);
-  };
+  const currentStep = steps[step];
+  const isFinalStep = step === steps.length - 1;
 
   return (
-    <div className={`min-h-screen transition-all duration-700 ${
-      theme === 'dark' 
-        ? 'bg-gradient-to-br from-gray-900 via-black to-gray-900' 
-        : 'bg-gradient-to-br from-white via-gray-50 to-gray-100'
-    }`}>
-      
-      {/* Animated background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className={`absolute top-1/4 left-1/4 w-64 h-64 rounded-full blur-3xl opacity-20 animate-pulse transition-colors duration-700 ${
-          theme === 'dark' ? 'bg-purple-500' : 'bg-pink-400'
-        }`} />
-        <div className={`absolute top-3/4 right-1/4 w-96 h-96 rounded-full blur-3xl opacity-15 animate-pulse transition-colors duration-700 ${
-          theme === 'dark' ? 'bg-blue-500' : 'bg-orange-400'
-        }`} style={{ animationDelay: '2s' }} />
-        <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl opacity-10 animate-pulse transition-colors duration-700 ${
-          theme === 'dark' ? 'bg-green-500' : 'bg-purple-400'
-        }`} style={{ animationDelay: '4s' }} />
-      </div>
-
-      {/* Success celebration */}
-      {showSuccess && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-          <div className="text-6xl animate-bounce">✨</div>
+    <div className={`min-h-screen w-full bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300 ${nunito.className}`}>
+      <Background />
+      <header className="fixed top-0 left-0 right-0 p-4 px-8 flex justify-between items-center z-30">
+        <div className="flex items-center gap-2 font-bold text-lg cursor-pointer" onClick={restart}>
+          <GiftIcon className="text-rose-500" />
+          <span className="dark:text-white">GiftGarden</span>
         </div>
-      )}
-
-      {/* Toast notification */}
-      {toast && (
-        <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-2xl font-medium shadow-xl backdrop-blur-md transition-all duration-500 ${
-          toast.type === 'success' 
-            ? 'bg-green-500/90 text-white' 
-            : 'bg-red-500/90 text-white'
-        }`}>
-          {toast.message}
-        </div>
-      )}
-
-      {/* Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-lg">
-              G
-            </div>
-            <div>
-              <div className={`font-black text-lg ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                Gift Generator
-              </div>
-              <div className={`text-xs opacity-60 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                Find the perfect gift
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className={`p-3 rounded-2xl transition-all duration-300 transform hover:scale-110 ${
-              theme === 'dark' 
-                ? 'bg-white/10 hover:bg-white/20 text-white' 
-                : 'bg-black/10 hover:bg-black/20 text-black'
-            }`}
-          >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-        </div>
+        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full bg-gray-100/50 dark:bg-gray-800/50 hover:bg-gray-200/80 dark:hover:bg-gray-700/80 backdrop-blur-sm transition-colors">
+          <Sun className="h-5 w-5 text-gray-800 dark:text-transparent scale-100 dark:scale-0 transition-all" />
+          <Moon className="h-5 w-5 text-transparent dark:text-gray-200 absolute scale-0 dark:scale-100 transition-all" />
+        </button>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-12">
-        
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center text-3xl transform rotate-3 hover:rotate-0 transition-transform duration-500 shadow-2xl">
-            🎁
-          </div>
-          <h1 className={`text-6xl sm:text-7xl font-black mb-6 leading-none ${
-            theme === 'dark' 
-              ? 'bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent' 
-              : 'bg-gradient-to-r from-gray-900 via-purple-700 to-pink-700 bg-clip-text text-transparent'
-          }`}>
-            Perfect
-            <br />
-            Gifts
-          </h1>
-          <p className={`text-xl sm:text-2xl mb-8 max-w-md mx-auto leading-relaxed ${
-            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-          }`}>
-            Discover thoughtful gifts that create lasting memories
-          </p>
-        </div>
-
-        {/* Main Form */}
-        <div className="space-y-12">
-          
-          {/* Who is this for? */}
-          <div className="space-y-6">
-            <h2 className={`text-3xl font-black ${
-              theme === 'dark' ? 'text-white' : 'text-gray-900'
-            }`}>
-              Who's the lucky person? ✨
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {recipients.map(([value, emoji]) => (
-                <button
-                  key={value}
-                  onClick={() => setRecipient(value)}
-                  className={`p-4 rounded-2xl text-center transition-all duration-300 transform hover:scale-105 group ${
-                    recipient === value
-                      ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xl scale-105'
-                      : theme === 'dark'
-                      ? 'bg-gray-800/50 hover:bg-gray-800 text-white border border-gray-700/50'
-                      : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 shadow-sm'
-                  }`}
-                >
-                  <div className="text-2xl mb-2 group-hover:animate-bounce">{emoji}</div>
-                  <div className="font-semibold text-sm capitalize">{value}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* What's the occasion? */}
-          <div className="space-y-6">
-            <h2 className={`text-3xl font-black ${
-              theme === 'dark' ? 'text-white' : 'text-gray-900'
-            }`}>
-              What's the celebration? 🎉
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {occasions.map(([value, emoji]) => (
-                <button
-                  key={value}
-                  onClick={() => setOccasion(value)}
-                  className={`p-4 rounded-2xl text-center transition-all duration-300 transform hover:scale-105 group ${
-                    occasion === value
-                      ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xl scale-105'
-                      : theme === 'dark'
-                      ? 'bg-gray-800/50 hover:bg-gray-800 text-white border border-gray-700/50'
-                      : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 shadow-sm'
-                  }`}
-                >
-                  <div className="text-2xl mb-2 group-hover:animate-bounce">{emoji}</div>
-                  <div className="font-semibold text-sm capitalize">{value}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* What's the vibe? */}
-          <div className="space-y-6">
-            <h2 className={`text-3xl font-black ${
-              theme === 'dark' ? 'text-white' : 'text-gray-900'
-            }`}>
-              What's the vibe? 
-              <span className={`text-base font-normal ml-3 opacity-70 ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                (pick any that feel right)
-              </span>
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {vibes.map(([value, emoji]) => (
-                <button
-                  key={value}
-                  onClick={() => {
-                    if (vibe.includes(value)) {
-                      setVibe(vibe.filter(v => v !== value));
-                    } else {
-                      setVibe([...vibe, value]);
-                    }
-                  }}
-                  className={`p-4 rounded-2xl text-center transition-all duration-300 transform hover:scale-105 group ${
-                    vibe.includes(value)
-                      ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xl scale-105'
-                      : theme === 'dark'
-                      ? 'bg-gray-800/50 hover:bg-gray-800 text-white border border-gray-700/50'
-                      : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 shadow-sm'
-                  }`}
-                >
-                  <div className="text-2xl mb-2 group-hover:animate-bounce">{emoji}</div>
-                  <div className="font-semibold text-sm capitalize">{value}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Budget */}
-          <div className="space-y-6">
-            <h2 className={`text-3xl font-black ${
-              theme === 'dark' ? 'text-white' : 'text-gray-900'
-            }`}>
-              What's your budget? 💰
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {budgets.map(([value, emoji]) => (
-                <button
-                  key={value}
-                  onClick={() => {
-                    if (budget.includes(value)) {
-                      setBudget(budget.filter(b => b !== value));
-                    } else {
-                      setBudget([...budget, value]);
-                    }
-                  }}
-                  className={`p-4 rounded-2xl text-left flex items-center gap-4 transition-all duration-300 transform hover:scale-105 ${
-                    budget.includes(value)
-                      ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xl scale-105'
-                      : theme === 'dark'
-                      ? 'bg-gray-800/50 hover:bg-gray-800 text-white border border-gray-700/50'
-                      : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 shadow-sm'
-                  }`}
-                >
-                  <div className="text-2xl">{emoji}</div>
-                  <div className="font-semibold">{value}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tell us more */}
-          <div className="space-y-6">
-            <h2 className={`text-3xl font-black ${
-              theme === 'dark' ? 'text-white' : 'text-gray-900'
-            }`}>
-              Tell us more about them 
-              <span className={`text-base font-normal ml-3 opacity-70 ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                (optional but helpful)
-              </span>
-            </h2>
-            <div className="relative">
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Their hobbies, interests, personality, or anything special about them..."
-                className={`w-full p-6 rounded-3xl resize-none h-32 text-lg transition-all duration-300 ${
-                  theme === 'dark'
-                    ? 'bg-gray-800/50 border border-gray-700/50 text-white placeholder-gray-400 focus:bg-gray-800 focus:border-purple-500'
-                    : 'bg-white border border-gray-200 text-gray-900 placeholder-gray-500 focus:bg-gray-50 focus:border-purple-500'
-                } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
-              />
-              <button
-                onClick={isListening ? () => setIsListening(false) : startListening}
-                className={`absolute bottom-4 right-4 p-3 rounded-2xl transition-all duration-300 transform hover:scale-110 ${
-                  isListening
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : theme === 'dark'
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
-                }`}
-              >
-                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </button>
-              {isListening && (
-                <div className="absolute bottom-4 left-6 flex items-center gap-2 text-sm font-medium text-red-500">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
-                  Listening...
+      <div className="relative z-10 w-full h-screen flex flex-col items-center justify-center p-4">
+        <AnimatePresence mode="wait">
+          {isGenerating ? (
+            <motion.div key="generating" {...fadeAnim} className="text-center">
+              <motion.div animate={{ rotate: 360, scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} className="w-20 h-20 bg-gradient-to-br from-rose-400 to-sky-400 rounded-full flex items-center justify-center shadow-lg mb-6 mx-auto">
+                <Sparkles className="w-10 h-10 text-white" />
+              </motion.div>
+              <h2 className="text-2xl font-bold dark:text-white">Growing your ideas...</h2>
+            </motion.div>
+          ) : showResults ? (
+            <motion.div key="results" {...fadeAnim} className="w-full h-full flex flex-col items-center">
+              {noResults ? (
+                <div className="text-center m-auto">
+                  <h2 className="text-3xl font-bold mb-4">Oops!</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8">We couldn't find any gifts with these options. <br/>Please try a different combination.</p>
+                  <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-rose-500 text-white hover:scale-105 transition-transform">Try Again</button>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Generate Button */}
-          <div className="text-center pt-8">
-            <button
-              onClick={generateGifts}
-              disabled={isGenerating || !canGenerate()}
-              className={`px-12 py-6 rounded-3xl font-black text-xl transition-all duration-500 transform hover:scale-105 flex items-center gap-4 mx-auto ${
-                isGenerating
-                  ? theme === 'dark'
-                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : canGenerate()
-                  ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white shadow-2xl hover:shadow-3xl hover:shadow-purple-500/30'
-                  : theme === 'dark'
-                  ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isGenerating ? (
-                <>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                    <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                  </div>
-                  Finding perfect gifts...
-                </>
               ) : (
                 <>
-                  <Sparkles className="w-6 h-6" />
-                  Generate Amazing Gifts
+                  <h2 className="text-center text-3xl font-bold pt-20 pb-8">Here's what we found...</h2>
+                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {generatedGifts.map(gift => <GiftCard key={gift.id} gift={gift} onClick={() => setActiveGift(gift)} />)}
+                  </div>
+                  <button onClick={restart} className="mt-12 px-6 py-3 font-bold rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Start Over</button>
                 </>
               )}
-            </button>
-            {!canGenerate() && (
-              <p className={`mt-4 text-sm ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                Please select who this is for and the occasion
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Results */}
-        {generatedGifts.length > 0 && (
-          <div ref={resultsRef} className="mt-24 space-y-12">
-            <div className="text-center space-y-6">
-              <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-r from-green-400 via-blue-500 to-purple-600 flex items-center justify-center text-4xl animate-bounce shadow-2xl">
-                🎉
+            </motion.div>
+          ) : (
+            <motion.div key="form" {...fadeAnim} className="w-full max-w-3xl text-center">
+              <div className="relative">
+                {step > 0 && <button onClick={prevStep} className="absolute -left-4 sm:-left-12 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><ArrowLeft /></button>}
+                <AnimatePresence mode="wait">
+                  <motion.h2 key={step} {...fadeAnim} className="text-3xl md:text-4xl font-bold mb-12 h-10">{currentStep.question}</motion.h2>
+                </AnimatePresence>
               </div>
-              <h2 className={`text-5xl font-black ${
-                theme === 'dark' 
-                  ? 'bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent'
-                  : 'bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 bg-clip-text text-transparent'
-              }`}>
-                Perfect matches!
-              </h2>
-              <p className={`text-xl ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                Here are some thoughtful gift ideas we found
-              </p>
-            </div>
 
-            {/* Gift Cards */}
-            <div className="space-y-8">
-              {generatedGifts.map((gift, index) => (
-                <div
-                  key={gift.id}
-                  className={`p-8 rounded-3xl transition-all duration-700 transform hover:scale-105 hover:-translate-y-2 ${
-                    theme === 'dark'
-                      ? 'bg-gray-800/50 border border-gray-700/50 backdrop-blur-sm shadow-2xl hover:shadow-purple-500/10'
-                      : 'bg-white border border-gray-100 shadow-xl hover:shadow-2xl backdrop-blur-sm'
-                  }`}
-                  style={{ animationDelay: `${index * 0.2}s` }}
-                >
-                  <div className="flex justify-between items-start mb-6">
-                    <h3 className={`text-2xl font-black ${
-                      theme === 'dark' 
-                        ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent'
-                        : 'bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent'
-                    }`}>
-                      {gift.name}
-                    </h3>
-                    {gift.estimatedPrice && (
-                      <span className={`text-lg font-bold px-4 py-2 rounded-2xl ${
-                        theme === 'dark'
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          : 'bg-green-50 text-green-700 border border-green-200'
-                      }`}>
-                        {gift.estimatedPrice}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <p className={`text-lg mb-6 leading-relaxed ${
-                    theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    {gift.description}
-                  </p>
-                  
-                  {gift.tags && gift.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {gift.tags.map(tag => (
-                        <span
-                          key={tag}
-                          className={`px-3 py-1 text-sm font-medium rounded-full ${
-                            theme === 'dark'
-                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                              : 'bg-purple-50 text-purple-700 border border-purple-200'
-                          }`}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => copyToClipboard(gift.name)}
-                      className={`flex-1 py-4 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 ${
-                        theme === 'dark'
-                          ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
-                      }`}
-                    >
-                      <Copy className="w-5 h-5 inline mr-2" />
-                      Copy Gift Idea
-                    </button>
-                    <button className={`p-4 rounded-2xl transition-all duration-300 transform hover:scale-110 ${
-                      theme === 'dark'
-                        ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
-                        : 'bg-red-50 hover:bg-red-100 text-red-500'
-                    }`}>
-                      <Heart className="w-5 h-5" />
-                    </button>
-                    <button className={`p-4 rounded-2xl transition-all duration-300 transform hover:scale-110 ${
-                      theme === 'dark'
-                        ? 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'
-                        : 'bg-blue-50 hover:bg-blue-100 text-blue-500'
-                    }`}>
-                      <Share2 className="w-5 h-5" />
-                    </button>
-                  </div>
+              <div className="min-h-[250px]">
+                <div className="flex flex-wrap justify-center gap-3">
+                  {currentStep.options?.map(opt => <OptionPill key={opt} label={opt} isSelected={Array.isArray(form[currentStep.key as keyof typeof form]) ? form[currentStep.key as keyof typeof form].includes(opt) : form[currentStep.key as keyof typeof form] === opt} onClick={() => handleSelect(currentStep.key as keyof typeof form, opt)} />)}
                 </div>
-              ))}
-            </div>
+              </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-12">
-              <button
-                onClick={restart}
-                className={`flex-1 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-3 ${
-                  theme === 'dark'
-                    ? 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700'
-                    : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 shadow-lg'
-                }`}
-              >
-                <RotateCcw className="w-5 h-5" />
-                Start Over
-              </button>
-              <button
-                onClick={generateGifts}
-                disabled={isGenerating}
-                className="flex-1 py-5 rounded-2xl font-bold text-lg bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl"
-              >
-                <Plus className="w-5 h-5" />
-                Show More Ideas
-              </button>
-            </div>
-          </div>
-        )}
-      </main>
+              {isFinalStep && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">All set? Let's grow some ideas!</p>
+                  <div onMouseDown={startHold} onMouseUp={endHold} onTouchStart={startHold} onTouchEnd={endHold} className="relative w-24 h-24 mx-auto cursor-pointer">
+                    <AnimatePresence>{isHolding && <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="absolute inset-0 border-4 border-rose-400 rounded-full" />}</AnimatePresence>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="w-full h-full bg-gradient-to-br from-rose-400 to-sky-400 rounded-full flex items-center justify-center shadow-lg">
+                      <Sparkles className="w-10 h-10 text-white" />
+                    </motion.div>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>{activeGift && <GiftDetailModal gift={activeGift} onClose={() => setActiveGift(null)} />}</AnimatePresence>
+      </div>
     </div>
   );
 }
+
+// --- Helper & Modal Components ---
+const fadeAnim = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
+
+const OptionPill: FC<{ label: string; isSelected: boolean; onClick: () => void; }> = ({ label, isSelected, onClick }) => (
+  <motion.button whileTap={{ scale: 0.95 }} onClick={onClick} className={`px-5 py-3 text-lg font-semibold rounded-full border-2 transition-all duration-200 ${isSelected ? 'bg-rose-500 border-rose-500 text-white shadow-lg' : 'bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-rose-400 dark:hover:border-rose-400'}`}>
+    {label}
+  </motion.button>
+);
+
+const GiftCard: FC<{ gift: Gift; onClick: () => void; }> = ({ gift, onClick }) => (
+  <motion.div onClick={onClick} initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring' }} className="cursor-pointer w-full h-full bg-white dark:bg-gray-800 rounded-2xl shadow-md hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="relative w-full aspect-square"><ImageWithFallback src={gift.images?.[0] || ''} alt={gift.name} /></div>
+    <div className="p-4">
+      <h3 className="font-bold text-lg truncate">{gift.name}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{gift.estimatedPrice || ''}</p>
+    </div>
+  </motion.div>
+);
+
+const GiftDetailModal: FC<{ gift: Gift; onClose: () => void; }> = ({ gift, onClose }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} onClick={e => e.stopPropagation()} className="relative w-full max-w-lg bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+      <button onClick={onClose} className="absolute top-3 right-3 z-10 p-1 rounded-full bg-gray-100/50 dark:bg-gray-900/50 hover:bg-gray-200/80 dark:hover:bg-gray-700/80 transition-colors"><X /></button>
+      <div className="relative w-full aspect-video"><ImageWithFallback src={gift.images?.[0] || ''} alt={gift.name} /></div>
+      <div className="p-6">
+        <h3 className="text-2xl font-bold mb-2">{gift.name}</h3>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {gift.tags?.map(tag => <span key={tag} className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 rounded-full">{tag}</span>)}
+        </div>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">{gift.description}</p>
+        {gift.estimatedPrice && <div className="font-semibold text-xl mb-4">{gift.estimatedPrice}</div>}
+        {gift.links?.[0] && <a href={gift.links[0]} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full p-3 rounded-lg font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors"><LinkIcon className="w-4 h-4" /> View Product</a>}
+      </div>
+    </motion.div>
+  </motion.div>
+);
