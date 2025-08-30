@@ -33,7 +33,18 @@ const ImageWithFallback: FC<{ src: string; alt: string; className?: string; }> =
     );
   }
 
-  return <Image src={src} alt={alt} onError={() => setHasError(true)} {...props} layout="fill" objectFit="cover" />;
+  return <Image src={src} alt={alt} unoptimized onError={() => setHasError(true)} {...props} layout="fill" objectFit="cover" />;
+  // return <Image 
+  //     src={gift.images[0]} 
+  //     alt={gift.name} 
+  //     width={500} 
+  //     height={300} 
+  //     unoptimized
+  //     className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
+  //     onError={(e) => {
+  //       e.currentTarget.style.display = 'none';
+  //     }}
+  //   />
 };
 
 // --- Main Component ---
@@ -144,30 +155,39 @@ export default function Home() {
             </motion.div>
           ) : (
             <motion.div key="form" {...fadeAnim} className="w-full max-w-3xl text-center">
-              <div className="relative">
-                {step > 0 && <button onClick={prevStep} className="absolute -left-4 sm:-left-12 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><ArrowLeft /></button>}
+              <div className="relative h-24">
                 <AnimatePresence mode="wait">
-                  <motion.h2 key={step} {...fadeAnim} className="text-3xl md:text-4xl font-bold mb-12 h-10">{currentStep.question}</motion.h2>
+                  <motion.h2 key={step} {...fadeAnim} className="text-3xl md:text-4xl font-bold">
+                    {currentStep.question}
+                  </motion.h2>
                 </AnimatePresence>
               </div>
 
-              <div className="min-h-[250px]">
+              <div className="min-h-[300px] flex flex-col justify-center">
                 <div className="flex flex-wrap justify-center gap-3">
                   {currentStep.options?.map(opt => <OptionPill key={opt} label={opt} isSelected={Array.isArray(form[currentStep.key as keyof typeof form]) ? form[currentStep.key as keyof typeof form].includes(opt) : form[currentStep.key as keyof typeof form] === opt} onClick={() => handleSelect(currentStep.key as keyof typeof form, opt)} />)}
                 </div>
               </div>
 
-              {isFinalStep && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">All set? Let's grow some ideas!</p>
-                  <div onMouseDown={startHold} onMouseUp={endHold} onTouchStart={startHold} onTouchEnd={endHold} className="relative w-24 h-24 mx-auto cursor-pointer">
-                    <AnimatePresence>{isHolding && <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="absolute inset-0 border-4 border-rose-400 rounded-full" />}</AnimatePresence>
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="w-full h-full bg-gradient-to-br from-rose-400 to-sky-400 rounded-full flex items-center justify-center shadow-lg">
-                      <Sparkles className="w-10 h-10 text-white" />
-                    </motion.div>
-                  </div>
-                </motion.div>
-              )}
+              <div className="h-20">
+                {isFinalStep ? (
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">All set? Let's grow some ideas!</p>
+                    <div onMouseDown={startHold} onMouseUp={endHold} onTouchStart={startHold} onTouchEnd={endHold} className="relative w-24 h-24 mx-auto cursor-pointer">
+                      <AnimatePresence>{isHolding && <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="absolute inset-0 border-4 border-rose-400 rounded-full" />}</AnimatePresence>
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="w-full h-full bg-gradient-to-br from-rose-400 to-sky-400 rounded-full flex items-center justify-center shadow-lg">
+                        <Sparkles className="w-10 h-10 text-white" />
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                ) : step > 0 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <button onClick={prevStep} className="flex items-center gap-2 mx-auto px-4 py-2 rounded-full font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                      <ArrowLeft className="w-5 h-5" /> Back
+                    </button>
+                  </motion.div>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
