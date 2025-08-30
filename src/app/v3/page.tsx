@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { Nunito } from 'next/font/google';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Link as LinkIcon, Gift as GiftIcon, X, Check, ArrowLeft, Sun, Moon, Search } from 'lucide-react';
+import { Sprout, Flower2, Trees, Droplets, Gift as GiftIcon, X, ArrowLeft, Sun, Moon, Link as LinkIcon, Sparkles, Gift } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const nunito = Nunito({ subsets: ['latin'] });
@@ -16,8 +16,8 @@ interface Gift { id: string; name: string; description: string; estimatedPrice?:
 // --- Reusable Components ---
 const Background = () => (
   <div className="absolute inset-0 z-0 overflow-hidden bg-white dark:bg-gray-900">
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-br from-sky-100 via-transparent to-transparent dark:from-sky-900/30" />
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute bottom-0 right-0 w-1/2 h-full bg-gradient-to-tl from-rose-100 via-transparent to-transparent dark:from-rose-900/30" />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-br from-green-100 via-transparent to-transparent dark:from-green-900/30" />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute bottom-0 right-0 w-1/2 h-full bg-gradient-to-tl from-emerald-100 via-transparent to-transparent dark:from-emerald-900/30" />
   </div>
 );
 
@@ -34,17 +34,6 @@ const ImageWithFallback: FC<{ src: string; alt: string; className?: string; }> =
   }
 
   return <Image src={src} alt={alt} unoptimized onError={() => setHasError(true)} {...props} layout="fill" objectFit="cover" />;
-  // return <Image 
-  //     src={gift.images[0]} 
-  //     alt={gift.name} 
-  //     width={500} 
-  //     height={300} 
-  //     unoptimized
-  //     className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
-  //     onError={(e) => {
-  //       e.currentTarget.style.display = 'none';
-  //     }}
-  //   />
 };
 
 // --- Main Component ---
@@ -57,14 +46,23 @@ export default function Home() {
   const [showResults, setShowResults] = useState(false);
   const [noResults, setNoResults] = useState(false);
   const [activeGift, setActiveGift] = useState<Gift | null>(null);
+  const [loadingText, setLoadingText] = useState("Planting seeds of inspiration... 🌱");
   const holdTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const { theme, setTheme } = useTheme();
 
   const steps = [
     { key: 'recipient', question: "Who are we celebrating?", options: (process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')[0]) || []) },
-    { key: 'occasion', question: "What's the special day?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
-    { key: 'vibe', question: "What's the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'occasion', question: "What’s the occasion?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'vibe', question: "What the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
+  ];
+
+  const gardenLoadingTexts = [
+    "Planting seeds of inspiration... 🌱",
+    "Watering your gift ideas... 💧",
+    "Waiting for them to bloom... 🌸",
+    "Pulling the weeds to find the best gifts... 🌿",
+    "Harvesting your surprises... 🍎",
   ];
 
   const handleSelect = (key: keyof typeof form, value: string) => {
@@ -80,6 +78,7 @@ export default function Home() {
     setIsGenerating(true);
     setIsHolding(false);
     setNoResults(false);
+    setLoadingText(gardenLoadingTexts[Math.floor(Math.random() * gardenLoadingTexts.length)]);
     try {
       const response = await fetch('/api/generate-gifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, description: '' }) });
       if (!response.ok) throw new Error('API Error');
@@ -117,12 +116,14 @@ export default function Home() {
       <Background />
       <header className="fixed top-0 left-0 right-0 p-4 px-8 flex justify-between items-center z-30">
         <div className="flex items-center gap-2 font-bold text-lg cursor-pointer" onClick={restart}>
-          <GiftIcon className="text-rose-500" />
+          <Flower2 className="text-green-600" />
           <span className="dark:text-white">GiftGarden</span>
         </div>
-        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full bg-gray-100/50 dark:bg-gray-800/50 hover:bg-gray-200/80 dark:hover:bg-gray-700/80 backdrop-blur-sm transition-colors">
-          <Sun className="h-5 w-5 text-gray-800 dark:text-transparent scale-100 dark:scale-0 transition-all" />
-          <Moon className="h-5 w-5 text-transparent dark:text-gray-200 absolute scale-0 dark:scale-100 transition-all" />
+        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="relative flex items-center justify-center w-10 h-10 rounded-full bg-gray-100/50 dark:bg-gray-800/50 hover:bg-gray-200/80 dark:hover:bg-gray-700/80 backdrop-blur-sm transition-colors">
+          <div className="relative w-6 h-6">
+            <Sun className="absolute inset-0 text-gray-800 dark:text-transparent scale-100 dark:scale-0 transition-all duration-300" />
+            <Moon className="absolute inset-0 text-transparent dark:text-gray-200 scale-0 dark:scale-100 transition-all duration-300" />
+          </div>
         </button>
       </header>
 
@@ -130,19 +131,19 @@ export default function Home() {
         <AnimatePresence mode="wait">
           {isGenerating ? (
             <motion.div key="generating" {...fadeAnim} className="text-center">
-              <motion.div animate={{ rotate: 360, scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} className="w-20 h-20 bg-gradient-to-br from-rose-400 to-sky-400 rounded-full flex items-center justify-center shadow-lg mb-6 mx-auto">
-                <Sparkles className="w-10 h-10 text-white" />
+              <motion.div animate={{ rotate: 360, scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg mb-6 mx-auto">
+                <Sprout className="w-10 h-10 text-white" />
               </motion.div>
-              <h2 className="text-2xl font-bold dark:text-white">Growing your ideas...</h2>
+              <h2 className="text-2xl font-bold dark:text-white">{loadingText}</h2>
             </motion.div>
           ) : showResults ? (
             <motion.div key="results" {...fadeAnim} className="w-full h-full flex flex-col items-center">
               {noResults ? (
                 <div className="text-center m-auto">
-                  <h2 className="text-3xl font-bold mb-4">Oops! No Gifts Found</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-8">We couldn't find any gifts with that combination. <br/>Let's try again!</p>
+                  <h2 className="text-3xl font-bold mb-4">🌱 Nothing Sprouted</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8">Looks like this garden was empty. <br/>Let’s plant again!</p>
                   <div className="flex items-center justify-center gap-4">
-                    <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-rose-500 text-white hover:scale-105 transition-transform">
+                    <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-green-500 text-white hover:scale-105 transition-transform">
                       Try Again
                     </button>
                     <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
@@ -152,7 +153,7 @@ export default function Home() {
                 </div>
               ) : (
                 <>
-                  <h2 className="text-center text-3xl font-bold pt-20 pb-8">Here's what we found...</h2>
+                  <h2 className="text-center text-3xl font-bold pt-20 pb-8">🌼 Your garden bloomed with gifts...</h2>
                   <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {generatedGifts.map(gift => <GiftCard key={gift.id} gift={gift} onClick={() => setActiveGift(gift)} />)}
                   </div>
@@ -179,13 +180,18 @@ export default function Home() {
               <div className="h-20">
                 {isFinalStep ? (
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">All set? Let's grow some ideas!</p>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">Lets discover amazing gift ideas from the garden!</p>
                     <div onMouseDown={startHold} onMouseUp={endHold} onTouchStart={startHold} onTouchEnd={endHold} className="relative w-24 h-24 mx-auto cursor-pointer">
-                      <AnimatePresence>{isHolding && <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="absolute inset-0 border-4 border-rose-400 rounded-full" />}</AnimatePresence>
-                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="w-full h-full bg-gradient-to-br from-rose-400 to-sky-400 rounded-full flex items-center justify-center shadow-lg">
-                        <Sparkles className="w-10 h-10 text-white" />
+                      <AnimatePresence>{isHolding && <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="absolute inset-0 border-4 border-green-400 rounded-full" />}</AnimatePresence>
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="w-full h-full bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                        <Gift className="w-10 h-10 text-white" />
                       </motion.div>
                     </div>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <button onClick={prevStep} className="flex items-center gap-2 mx-auto px-4 py-2 rounded-full font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                      <ArrowLeft className="w-5 h-5" /> Back
+                    </button>
+                  </motion.div>
                   </motion.div>
                 ) : step > 0 && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -209,7 +215,7 @@ export default function Home() {
 const fadeAnim = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
 
 const OptionPill: FC<{ label: string; isSelected: boolean; onClick: () => void; }> = ({ label, isSelected, onClick }) => (
-  <motion.button whileTap={{ scale: 0.95 }} onClick={onClick} className={`px-5 py-3 text-lg font-semibold rounded-full border-2 transition-all duration-200 ${isSelected ? 'bg-rose-500 border-rose-500 text-white shadow-lg' : 'bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-rose-400 dark:hover:border-rose-400'}`}>
+  <motion.button whileTap={{ scale: 0.95 }} onClick={onClick} className={`px-5 py-3 text-lg font-semibold rounded-full border-2 transition-all duration-200 ${isSelected ? 'bg-green-500 border-green-500 text-white shadow-lg' : 'bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-400'}`}>
     {label}
   </motion.button>
 );
@@ -219,7 +225,7 @@ const GiftCard: FC<{ gift: Gift; onClick: () => void; }> = ({ gift, onClick }) =
     <div className="relative w-full aspect-square"><ImageWithFallback src={gift.images?.[0] || ''} alt={gift.name} /></div>
     <div className="p-4">
       <h3 className="font-bold text-lg truncate">{gift.name}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400">{gift.estimatedPrice || ''}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{gift.description}</p>
     </div>
   </motion.div>
 );
@@ -235,8 +241,7 @@ const GiftDetailModal: FC<{ gift: Gift; onClose: () => void; }> = ({ gift, onClo
           {gift.tags?.map(tag => <span key={tag} className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 rounded-full">{tag}</span>)}
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">{gift.description}</p>
-        {gift.estimatedPrice && <div className="font-semibold text-xl mb-4">{gift.estimatedPrice}</div>}
-        {gift.links?.[0] && <a href={gift.links[0]} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full p-3 rounded-lg font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors"><LinkIcon className="w-4 h-4" /> View Product</a>}
+        {gift.links?.[0] && <a href={gift.links[0]} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full p-3 rounded-lg font-semibold bg-green-500 text-white hover:bg-green-600 transition-colors"><LinkIcon className="w-4 h-4" /> View Product</a>}
       </div>
     </motion.div>
   </motion.div>
