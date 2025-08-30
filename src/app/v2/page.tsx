@@ -1,325 +1,518 @@
 'use client';
 
-import { useState, useEffect, useRef, FC } from 'react';
+import { useState, useEffect, useRef, FC, useCallback } from 'react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { Inter } from 'next/font/google';
+import { Nunito } from 'next/font/google';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Moon, Sun, Mic, Sparkles, RotateCcw, Plus, Copy, Edit, Link as LinkIcon, ArrowLeft, Gift as GiftIcon, Heart, Search, ChevronRight, ChevronLeft } from 'lucide-react';
-import { analytics } from '@/lib/analytics';
-import FeedbackModal from '@/components/FeedbackModal';
+import { Gift as GiftIcon, X, Sun, Moon, Link as LinkIcon, ChevronLeft, ChevronRight, Sparkles, ArrowRight, Check } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
-const inter = Inter({ subsets: ['latin'] });
+const nunito = Nunito({ subsets: ['latin'], weight:['400','500','600','700'] });
 
-// Interfaces
-interface SpeechRecognitionEvent extends Event {
-  results: { item(index: number): { item(index: number): { transcript: string } }[]; length: number };
-}
-interface SpeechRecognitionErrorEvent extends Event { error: string; }
-interface SpeechRecognitionInstance extends EventTarget {
-  continuous: boolean; interimResults: boolean; onstart: (event: Event) => void; onresult: (event: SpeechRecognitionEvent) => void; onerror: (event: SpeechRecognitionErrorEvent) => void; onend: (event: Event) => void; start: () => void; stop: () => void;
-}
-interface SpeechRecognitionConstructor { new(): SpeechRecognitionInstance; }
-declare global {
-  interface Window {
-    webkitSpeechRecognition: SpeechRecognitionConstructor;
-    SpeechRecognition: SpeechRecognitionConstructor;
+// --- Interfaces & Types ---
+interface Gift { id: string; name: string; description: string; estimatedPrice?: string; tags?: string[]; links?: string[]; images?: string[]; }
+
+// --- Clean Background ---
+const Background = () => (
+  <div className="absolute inset-0 z-0">
+    <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800" />
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      transition={{ duration: 2 }}
+      className="absolute top-1/4 right-1/4 w-96 h-96 bg-green-200/20 dark:bg-green-500/10 rounded-full blur-3xl" 
+    />
+  </div>
+);
+
+const ImageWithFallback: FC<{ src: string; alt: string; className?: string; }> = ({ src, alt, ...props }) => {
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => { setHasError(false); }, [src]);
+
+  if (hasError || !src) {
+    return (
+      <div className={`w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 dark:text-gray-500 ${props.className}`}>
+        <GiftIcon className="w-8 h-8 opacity-40" />
+      </div>
+    );
   }
-}
 
-interface Gift {
-  id: string;
-  name: string;
-  description: string;
-  estimatedPrice?: string;
-  tags?: string[];
-  links?: string[];
-  images?: string[];
-  feedback: 'love' | 'like' | 'dislike' | null;
-}
+  return <Image src={src} alt={alt} unoptimized onError={() => setHasError(true)} {...props} layout="fill" objectFit="cover" />;
+};
 
-// Main Component
+// --- Main Component ---
 export default function Home() {
   const [step, setStep] = useState(0);
-  const [recipient, setRecipient] = useState('');
-  const [occasion, setOccasion] = useState('');
-  const [vibe, setVibe] = useState<string[]>([]);
-  const [budget, setBudget] = useState<string[]>([]);
-  const [description, setDescription] = useState('');
+  const [form, setForm] = useState({ recipient: '', occasion: '', vibe: [] as string[] });
   const [generatedGifts, setGeneratedGifts] = useState<Gift[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [noResults, setNoResults] = useState(false);
+  const [activeGift, setActiveGift] = useState<Gift | null>(null);
+  const [loadingText, setLoadingText] = useState("Finding perfect gifts...");
+  const [loadingIndex, setLoadingIndex] = useState(0);
 
-  const recipients = process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')) || [];
-  const occasions = process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')) || [];
-  const vibes = process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')) || [];
-  const budgets = process.env.NEXT_PUBLIC_GIFT_BUDGETS?.split(',').map(item => item.split(':')) || [];
+  const { theme, setTheme } = useTheme();
 
   const steps = [
-    { key: 'recipient', question: "Who's the lucky one?", state: recipient, setState: setRecipient, options: recipients, type: 'single' },
-    { key: 'occasion', question: "What's the special occasion?", state: occasion, setState: setOccasion, options: occasions, type: 'single' },
-    { key: 'vibe', question: "What's the vibe?", state: vibe, setState: setVibe, options: vibes, type: 'multi' },
-    { key: 'budget', question: "What's your budget?", state: budget, setState: setBudget, options: budgets, type: 'multi' },
-    { key: 'description', question: "Anything else to add?", state: description, setState: setDescription, type: 'textarea' }
+    { key: 'recipient', question: "Who is this gift for?", options: (process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'occasion', question: "What's the occasion?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'vibe', question: "What style do they love?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
   ];
 
-  const nextStep = () => setStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
-  const prevStep = () => setStep(prev => (prev > 0 ? prev - 1 : prev));
+  const loadingTexts = [
+    "Finding perfect gifts...",
+    "Curating recommendations...",
+    "Almost ready...",
+    "Finalizing selection...",
+  ];
 
-  const handleSingleSelect = (value: string, setState: (value: string) => void) => {
-    setState(value);
-    setTimeout(nextStep, 300);
-  };
+  // Rotate loading text every 3 seconds
+  useEffect(() => {
+    if (!isGenerating) return;
+    
+    const interval = setInterval(() => {
+      setLoadingIndex(prev => (prev + 1) % loadingTexts.length);
+    }, 3000);
 
-  const handleMultiSelect = (value: string, state: string[], setState: (value: string[]) => void) => {
-    const newState = state.includes(value) ? state.filter(v => v !== value) : [...state, value];
-    setState(newState);
-  };
+    return () => clearInterval(interval);
+  }, [isGenerating, loadingTexts.length]);
 
-  const startListening = () => {
-    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.onstart = () => setIsListening(true);
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = Array.from(event.results).map(result => result[0].transcript).join('');
-        setDescription(transcript);
-      };
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => console.error('Speech recognition error:', event.error);
-      recognition.onend = () => setIsListening(false);
-      recognition.start();
-      recognitionRef.current = recognition;
-    } else {
-      setToast({ message: 'Speech recognition not supported', type: 'error' });
+  // Update loading text when index changes
+  useEffect(() => {
+    if (isGenerating) {
+      setLoadingText(loadingTexts[loadingIndex]);
     }
-  };
+  }, [loadingIndex, isGenerating, loadingTexts]);
 
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
+  const handleSelect = (key: keyof typeof form, value: string) => {
+    if (key === 'vibe') {
+      setForm(prev => ({ ...prev, vibe: prev.vibe.includes(value) ? prev.vibe.filter(v => v !== value) : [...prev.vibe, value] }));
+    } else {
+      setForm(prev => ({ ...prev, [key]: value }));
+      // Auto-advance for single-select fields
+      setTimeout(() => {
+        if (step < steps.length - 1) {
+          setStep(s => s + 1);
+        }
+      }, 400);
     }
   };
 
   const generateGifts = async () => {
+    if (isGenerating || !form.recipient || !form.occasion) return;
     setIsGenerating(true);
+    setNoResults(false);
+    setLoadingIndex(0);
+    setLoadingText(loadingTexts[0]);
+    
     try {
-      const response = await fetch('/api/generate-gifts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient, occasion, vibe, budget, description: description.trim(), previouslyGeneratedGifts: generatedGifts.map(g => g.name) }),
-      });
-      if (!response.ok) throw new Error('Failed to generate gifts');
+      const response = await fetch('/api/generate-gifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, description: '' }) });
+      if (!response.ok) throw new Error('API Error');
       const data = await response.json();
-      const newGifts = data.gifts.map((gift: any) => ({
-        ...gift, id: gift.id || uuidv4(), feedback: null,
-        tags: Array.isArray(gift.tags) ? gift.tags : [],
-        links: Array.isArray(gift.links) ? gift.links : [],
-        images: Array.isArray(gift.images) ? gift.images : [],
-      }));
-      setGeneratedGifts(newGifts);
-      setStep(steps.length); // Move to results view
-    } catch (error) {
-      console.error('Error generating gifts:', error);
-      setToast({ message: 'Failed to generate gifts. Please try again.', type: 'error' });
-    } finally {
-      setIsGenerating(false);
-    }
+      if (data.gifts && data.gifts.length > 0) {
+        setGeneratedGifts(data.gifts.map((g: any) => ({ ...g, id: g.id || uuidv4() })));
+      } else {
+        setNoResults(true);
+      }
+      setShowResults(true);
+    } catch (error) { console.error("Failed to generate gifts:", error); setNoResults(true); setShowResults(true); }
+    finally { setIsGenerating(false); }
   };
+
+  const nextStep = () => setStep(s => s < steps.length - 1 ? s + 1 : s);
+  const prevStep = () => setStep(s => s > 0 ? s - 1 : 0);
 
   const restart = () => {
-    setRecipient(''); setOccasion(''); setVibe([]); setBudget([]); setDescription(''); setGeneratedGifts([]); setStep(0);
-    analytics.trackButtonClick('restart', 'results');
+    setStep(0); setForm({ recipient: '', occasion: '', vibe: [] }); setGeneratedGifts([]); setShowResults(false); setActiveGift(null); setNoResults(false);
   };
 
-  const progress = (step / (steps.length - 1)) * 100;
+  const currentStep = steps[step];
+  const isFinalStep = step === steps.length - 1;
+  const canProceed = form.recipient && (step > 0 ? form.occasion : true);
 
   return (
-    <main className={`relative min-h-screen w-full overflow-hidden bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 flex flex-col items-center justify-center p-4 sm:p-6 ${inter.className}`}>
-      <div className="absolute inset-0 z-0 opacity-50">
-        <div className="absolute top-0 left-0 w-1/3 h-1/3 bg-gradient-to-br from-rose-100 to-transparent dark:from-rose-900/50 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 right-0 w-1/3 h-1/3 bg-gradient-to-tl from-sky-100 to-transparent dark:from-sky-900/50 rounded-full blur-3xl"></div>
-      </div>
-
-      <header className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex justify-between items-center z-20">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={restart}>
-          <GiftIcon className="w-6 h-6 text-rose-500" />
-          <span className="font-bold text-lg">GiftFinder</span>
-        </div>
-        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-          {resolvedTheme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-        </button>
+    <div className={`min-h-screen w-full bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 text-gray-800 dark:text-gray-100 ${nunito.className}`}>
+      <Background />
+      
+      {/* Clean Header */}
+      <header className="fixed top-0 left-0 right-0 p-6 flex justify-between items-center z-30 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30">
+        <motion.div 
+          className="flex items-center gap-3 font-bold text-xl cursor-pointer text-green-700 dark:text-green-400" 
+          onClick={restart}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+            <GiftIcon className="w-5 h-5" />
+          </div>
+          GiftGarden
+        </motion.div>
+        
+        <motion.button 
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="w-11 h-11 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 flex items-center justify-center hover:bg-white/80 dark:hover:bg-gray-700/80 transition-all shadow-sm"
+        >
+          <Sun className="w-5 h-5 text-amber-500 dark:opacity-0 dark:scale-0 transition-all duration-300" />
+          <Moon className="w-5 h-5 text-blue-400 absolute opacity-0 scale-0 dark:opacity-100 dark:scale-100 transition-all duration-300" />
+        </motion.button>
       </header>
 
-      <AnimatePresence mode="wait">
-        {isGenerating ? (
-          <motion.div key="generating" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="text-center flex flex-col items-center z-10">
-            <motion.div
-              animate={{ rotate: 360, scale: [1, 1.1, 1] }}
-              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-              className="w-24 h-24 bg-gradient-to-br from-rose-400 to-sky-400 rounded-full flex items-center justify-center shadow-lg mb-6">
-              <Sparkles className="w-12 h-12 text-white" />
+      {/* Progress Indicator */}
+      {!showResults && !isGenerating && (
+        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-20">
+          <div className="flex gap-2">
+            {steps.map((_, i) => (
+              <motion.div
+                key={i}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  i === step ? 'bg-green-500 w-6' : i < step ? 'bg-green-300' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+                layoutId={`step-${i}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="relative z-10 w-full min-h-screen flex flex-col items-center justify-center p-6 pt-32">
+        <AnimatePresence mode="wait">
+          {isGenerating ? (
+            <motion.div 
+              key="generating" 
+              initial={{ opacity: 0, scale: 0.9 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="text-center"
+            >
+              <div className="mb-8 relative">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                  className="w-16 h-16 mx-auto mb-4"
+                >
+                  <div className="w-full h-full rounded-full border-4 border-green-200 dark:border-green-800 border-t-green-500 dark:border-t-green-400" />
+                </motion.div>
+                <motion.div
+                  key={loadingText}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200">{loadingText}</h2>
+                </motion.div>
+              </div>
             </motion.div>
-            <h2 className="text-2xl font-bold mb-2">Finding the perfect gifts...</h2>
-            <p className="text-gray-500 dark:text-gray-400">Our AI is working its magic!</p>
-          </motion.div>
-        ) : generatedGifts.length > 0 ? (
-          <ResultsScreen key="results" gifts={generatedGifts} onRestart={restart} />
-        ) : (
-          <motion.div key={step} initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} className="w-full max-w-2xl z-10">
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-rose-500">Step {step + 1} of {steps.length}</span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <motion.div className="bg-gradient-to-r from-rose-400 to-sky-400 h-2 rounded-full" style={{ width: `${progress}%` }} />
-              </div>
-            </div>
-
-            <h2 className="text-3xl sm:text-4xl font-bold mb-8 text-center">{steps[step].question}</h2>
-
-            <div className="min-h-[200px]">
-              {steps[step].type === 'textarea' ? (
-                <div className="relative">
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g., 'Loves hiking, sci-fi movies, and spicy food...'" className="w-full p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg bg-white/50 dark:bg-gray-800/50 focus:ring-2 focus:ring-rose-400 outline-none resize-none min-h-[120px]" rows={4} />
-                  <button onClick={isListening ? stopListening : startListening} className={`absolute right-3 bottom-3 p-2 rounded-full transition-colors ${isListening ? 'bg-rose-500 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>
-                    <Mic className="w-5 h-5" />
+          ) : showResults ? (
+            <motion.div 
+              key="results" 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              className="w-full max-w-7xl"
+            >
+              {noResults ? (
+                <div className="text-center">
+                  <h2 className="text-3xl font-bold mb-4 text-gray-700 dark:text-gray-200">No gifts found</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8">Let's try different preferences</p>
+                  <button 
+                    onClick={restart} 
+                    className="px-8 py-3 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 transition-colors shadow-lg"
+                  >
+                    Try Again
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                  {steps[step].options.map(([value, emoji]) => {
-                    const isSelected = steps[step].type === 'single' ? steps[step].state === value : (steps[step].state as string[]).includes(value);
-                    return (
-                      <motion.button
-                        key={value}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => steps[step].type === 'single' ? handleSingleSelect(value, steps[step].setState as (v: string) => void) : handleMultiSelect(value, steps[step].state as string[], steps[step].setState as (v: string[]) => void)}
-                        className={`p-4 rounded-xl text-center font-semibold border-2 transition-all duration-200 ${isSelected ? 'bg-rose-500 border-rose-500 text-white shadow-lg' : 'bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-rose-400 dark:hover:border-rose-400'}`}>
-                        <span className="text-3xl mb-2 block">{emoji}</span>
-                        <span>{value.charAt(0).toUpperCase() + value.slice(1)}</span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
+                <>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center mb-12"
+                  >
+                    <h2 className="text-4xl font-bold mb-4 text-gray-800 dark:text-gray-100">
+                      Perfect gifts for you
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {generatedGifts.length} thoughtfully curated recommendations
+                    </p>
+                  </motion.div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
+                    {generatedGifts.map((gift, index) => (
+                      <motion.div
+                        key={gift.id}
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1, duration: 0.4 }}
+                      >
+                        <GiftCard gift={gift} onClick={() => setActiveGift(gift)} />
+                      </motion.div>
+                    ))}
+                  </div>
+                  
+                  <div className="text-center">
+                    <button 
+                      onClick={restart} 
+                      className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+                    >
+                      Find Different Gifts
+                    </button>
+                  </div>
+                </>
               )}
-            </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="form" 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              className="w-full max-w-4xl text-center"
+            >
+              <motion.div className="mb-16">
+                <AnimatePresence mode="wait">
+                  <motion.h1 
+                    key={step}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-4xl md:text-5xl font-bold mb-4 text-gray-800 dark:text-gray-100"
+                  >
+                    {currentStep.question}
+                  </motion.h1>
+                </AnimatePresence>
+                
+                {/* {step === 0 && (
+                  <motion.p 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="text-xl text-gray-600 dark:text-gray-400"
+                  >
+                    Let's find the perfect gift together
+                  </motion.p>
+                )} */}
+              </motion.div>
 
-            <div className="flex justify-between items-center mt-12">
-              <button onClick={prevStep} disabled={step === 0} className="flex items-center gap-2 px-4 py-2 rounded-full font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors">
-                <ArrowLeft className="w-5 h-5" /> Back
-              </button>
-              {steps[step].type !== 'single' && (
-                <button onClick={step === steps.length - 1 ? generateGifts : nextStep} className="flex items-center gap-2 px-6 py-3 rounded-full font-semibold bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg hover:scale-105 transition-transform">
-                  {step === steps.length - 1 ? 'Find Gifts' : 'Next'} <ChevronRight className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </main>
+              <div className="mb-16">
+                <motion.div 
+                  className="flex flex-wrap justify-center gap-4 max-w-3xl mx-auto"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  {currentStep.options?.map((value, index) => (
+                    <motion.div
+                      key={value}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <OptionPill 
+                        label={value} 
+                        isSelected={
+                          Array.isArray(form[currentStep.key as keyof typeof form]) 
+                            ? form[currentStep.key as keyof typeof form].includes(value) 
+                            : form[currentStep.key as keyof typeof form] === value
+                        } 
+                        onClick={() => handleSelect(currentStep.key as keyof typeof form, value)} 
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </div>
+
+              {/* Navigation */}
+              <div className="flex items-center justify-center gap-6">
+                <motion.button 
+                  onClick={prevStep} 
+                  disabled={step === 0}
+                  whileHover={step > 0 ? { scale: 1.05 } : {}}
+                  whileTap={step > 0 ? { scale: 0.95 } : {}}
+                  className="flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </motion.button>
+
+                {isFinalStep ? (
+                  <motion.button 
+                    onClick={generateGifts} 
+                    disabled={isGenerating || !canProceed}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="group relative px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="w-5 h-5" />
+                      Find My Gifts
+                      <motion.div
+                        animate={{ x: [0, 4, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        <ArrowRight className="w-5 h-5" />
+                      </motion.div>
+                    </div>
+                  </motion.button>
+                ) : (
+                  <motion.button 
+                    onClick={nextStep} 
+                    disabled={!canProceed}
+                    whileHover={canProceed ? { scale: 1.05 } : {}}
+                    whileTap={canProceed ? { scale: 0.95 } : {}}
+                    className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 disabled:opacity-30 hover:bg-gray-700 dark:hover:bg-gray-300 transition-all shadow-sm"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </motion.button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>{activeGift && <GiftDetailModal gift={activeGift} onClose={() => setActiveGift(null)} />}</AnimatePresence>
+      </div>
+    </div>
   );
 }
 
-// Results Screen Component
-const ResultsScreen: FC<{ gifts: Gift[], onRestart: () => void }> = ({ gifts, onRestart }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
+// --- Refined Components ---
+const OptionPill: FC<{ label: string; isSelected: boolean; onClick: () => void; }> = ({ label, isSelected, onClick }) => (
+  <motion.button 
+    whileHover={{ scale: 1.02, y: -1 }}
+    whileTap={{ scale: 0.98 }} 
+    onClick={onClick} 
+    className={`relative px-6 py-4 text-lg font-medium rounded-2xl border-2 transition-all duration-200 shadow-sm hover:shadow-md ${
+      isSelected 
+        ? 'bg-green-500 border-green-500 text-white shadow-green-200 dark:shadow-green-900/50' 
+        : 'bg-white/80 dark:bg-gray-800/80 border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600 backdrop-blur-sm'
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <AnimatePresence>
+        {isSelected && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Check className="w-4 h-4" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {label.charAt(0).toUpperCase() + label.slice(1)}
+    </div>
+  </motion.button>
+);
 
-  const nextGift = () => setCurrentIndex(prev => (prev + 1) % gifts.length);
-  const prevGift = () => setCurrentIndex(prev => (prev - 1 + gifts.length) % gifts.length);
+const GiftCard: FC<{ gift: Gift; onClick: () => void; }> = ({ gift, onClick }) => (
+  <motion.div 
+    onClick={onClick} 
+    whileHover={{ y: -4, scale: 1.01 }}
+    whileTap={{ scale: 0.98 }}
+    className="group cursor-pointer bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden transition-all duration-300"
+  >
+    <div className="relative w-full aspect-square overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <ImageWithFallback src={gift.images?.[0] || ''} alt={gift.name} />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+    </div>
+    
+    <div className="p-5">
+      <h3 className="font-semibold text-lg mb-2 text-gray-800 dark:text-gray-100 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors line-clamp-1">
+        {gift.name}
+      </h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
+        {gift.description}
+      </p>
+      {gift.estimatedPrice && (
+        <p className="text-green-600 dark:text-green-400 font-semibold mt-2">
+          {gift.estimatedPrice}
+        </p>
+      )}
+    </div>
+  </motion.div>
+);
 
-  return (
-    <motion.div key="results-screen" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-4xl flex flex-col items-center z-10">
-      <h2 className="text-3xl sm:text-4xl font-bold mb-2 text-center">We found some gifts for you!</h2>
-      <p className="text-gray-500 dark:text-gray-400 mb-8 text-center">Swipe through or use the arrows to see your personalized gift ideas.</p>
+const GiftDetailModal: FC<{ gift: Gift; onClose: () => void; }> = ({ gift, onClose }) => (
+  <motion.div 
+    initial={{ opacity: 0 }} 
+    animate={{ opacity: 1 }} 
+    exit={{ opacity: 0 }} 
+    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" 
+    onClick={onClose}
+  >
+    <motion.div 
+      initial={{ scale: 0.9, opacity: 0 }} 
+      animate={{ scale: 1, opacity: 1 }} 
+      exit={{ scale: 0.9, opacity: 0 }} 
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      onClick={e => e.stopPropagation()} 
+      className="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700"
+    >
+      <motion.button 
+        onClick={onClose} 
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm flex items-center justify-center hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm"
+      >
+        <X className="w-5 h-5" />
+      </motion.button>
       
-      <div className="w-full flex items-center justify-center gap-2 sm:gap-4">
-        <button onClick={prevGift} className="p-2 rounded-full bg-white/50 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-md">
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-
-        <div className="relative w-full max-w-sm h-[450px] overflow-hidden">
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, x: 300, scale: 0.8 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: -300, scale: 0.8 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              onDragEnd={(_, info) => {
-                if (info.offset.x < -100) nextGift();
-                else if (info.offset.x > 100) prevGift();
-              }}
-              className="absolute w-full h-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
-              <GiftCard gift={gifts[currentIndex]} />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        <button onClick={nextGift} className="p-2 rounded-full bg-white/50 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shadow-md">
-          <ChevronRight className="w-6 h-6" />
-        </button>
+      <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-900">
+        <ImageWithFallback src={gift.images?.[0] || ''} alt={gift.name} />
       </div>
-
-      <div className="flex items-center gap-4 mt-8">
-        <button onClick={onRestart} className="flex items-center gap-2 px-6 py-3 rounded-full font-semibold bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-          <RotateCcw className="w-5 h-5" /> Start Over
-        </button>
-      </div>
-    </motion.div>
-  );
-};
-
-// Gift Card Component
-const GiftCard: FC<{ gift: Gift }> = ({ gift }) => {
-  return (
-    <>
-      <div className="w-full h-1/2 relative">
-        {gift.images && gift.images.length > 0 ? (
-        //  <Image src={gift.images[0]} alt={gift.name} layout="fill" objectFit="cover" className="bg-gray-100 dark:bg-gray-700" />
-            <Image 
-                src={gift.images[0]} 
-                alt={gift.name} 
-                width={500} 
-                height={300} 
-                unoptimized
-                className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
-                onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                }}
-            />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
-            <GiftIcon className="w-16 h-16 text-gray-400 dark:text-gray-500" />
+      
+      <div className="p-6">
+        <h3 className="text-2xl font-bold mb-3 text-gray-800 dark:text-gray-100">
+          {gift.name}
+        </h3>
+        
+        {gift.tags && gift.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {gift.tags.map((tag, index) => (
+              <motion.span 
+                key={tag}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.05 }}
+                className="px-3 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full"
+              >
+                {tag}
+              </motion.span>
+            ))}
           </div>
         )}
-      </div>
-      <div className="flex-1 p-4 flex flex-col justify-between">
-        <div>
-          <h3 className="font-bold text-xl mb-1">{gift.name}</h3>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mb-3 line-clamp-3">{gift.description}</p>
-          {gift.estimatedPrice && <div className="font-semibold text-lg mb-3">{gift.estimatedPrice}</div>}
-        </div>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {gift.tags?.map(tag => <span key={tag} className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 rounded-full">{tag}</span>)}
-        </div>
-        {gift.links && gift.links.length > 0 && (
-          <a href={gift.links[0]} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full p-3 rounded-lg font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors">
-            <LinkIcon className="w-4 h-4" /> View Product
-          </a>
+        
+        <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+          {gift.description}
+        </p>
+        
+        {gift.estimatedPrice && (
+          <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+            <p className="text-green-700 dark:text-green-400 font-semibold">
+              Estimated Price: {gift.estimatedPrice}
+            </p>
+          </div>
+        )}
+        
+        {gift.links?.[0] && (
+          <motion.a 
+            href={gift.links[0]} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex items-center justify-center gap-3 w-full p-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg"
+          >
+            <LinkIcon className="w-5 h-5" />
+            View Product
+            <ArrowRight className="w-5 h-5" />
+          </motion.a>
         )}
       </div>
-    </>
-  );
-};
+    </motion.div>
+  </motion.div>
+);
