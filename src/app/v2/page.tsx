@@ -95,10 +95,16 @@ export default function Home() {
 
   const handleSelect = (key: keyof typeof form, value: string) => {
     if (key === 'vibe') {
-      setForm(prev => ({ ...prev, vibe: prev.vibe.includes(value) ? prev.vibe.filter(v => v !== value) : [...prev.vibe, value] }));
+      setForm(prev => ({ 
+        ...prev, 
+        vibe: prev.vibe.includes(value) 
+          ? prev.vibe.filter(v => v !== value) 
+          : [...prev.vibe, value] 
+      }));
+      // Don't auto-advance for vibe selections since it's multi-select
     } else {
       setForm(prev => ({ ...prev, [key]: value }));
-      // Auto-advance for single-select fields
+      // Auto-advance only for single-select fields (recipient, occasion)
       setTimeout(() => {
         if (step < steps.length - 1) {
           setStep(s => s + 1);

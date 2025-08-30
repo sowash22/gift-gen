@@ -11,7 +11,7 @@ const localDbPath = path.resolve(process.cwd(), 'localdb.json')
 interface GenerateGiftsRequest {
   recipient?: string;
   occasion?: string;
-  vibe?: string;
+  vibe?:  string[];
   budget?: string;
   description?: string;
   categories?: string[];
@@ -144,24 +144,25 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
               properties: {
                 name: { type: Type.STRING },
                 description: { type: Type.STRING },
-                estimatedPrice: { type: Type.STRING },
-                tags: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-                links: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-                images: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                }
+                // estimatedPrice: { type: Type.STRING },
+                // tags: { 
+                //   type: Type.ARRAY,
+                //   items: { type: Type.STRING }
+                // },
+                // links: { 
+                //   type: Type.ARRAY,
+                //   items: { type: Type.STRING }
+                // },
+                // images: { 
+                //   type: Type.ARRAY,
+                //   items: { type: Type.STRING }
+                // }
               },
-              propertyOrdering: ["name", "description", "estimatedPrice", "tags", "links", "images"]
+              // propertyOrdering: ["name", "description", "estimatedPrice", "tags", "links", "images"]
+              propertyOrdering: ["name", "description"]
             }
           },
-          systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format. For each gift, you should provide relevant and valid purchase links and product image URLs."
+          systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format."
         }
       });
 
@@ -200,24 +201,24 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
     `Generate ${giftCount} unique and creative gift ideas based on the following criteria:`,
     request.recipient ? `Recipient: ${request.recipient}` : '',
     request.occasion ? `Occasion: ${request.occasion}` : '',
-    request.vibe ? `Vibe/Style: ${request.vibe}` : '',
-    request.budget ? `Budget: ${request.budget}` : '',
+    request.vibe ? `Vibe/Style: ${request?.vibe?.join(',')}` : '',
+    // request.budget ? `Budget: ${request.budget}` : '',
     request.description ? `Description: ${request.description}` : '',
     '',
     'For each gift idea, provide:',
     '- A creative name',
     '- A brief description explaining why it\'s a great gift',
-    '- An estimated price range',
-    '- Relevant tags/keywords',
-    '- Valid purchase links (URLs to major retailers like Amazon, Target, Walmart, Bestbuy, other popular online retailers etc.)',
-    '- Valid product image URLs when available',
+    // '- An estimated price range',
+    // '- Relevant tags/keywords',
+    // '- Valid purchase links (URLs to major retailers like Amazon, Target, Walmart, Bestbuy, other popular online retailers etc.)',
+    // '- Valid product image URLs when available',
     '',
     'Ensure each gift idea:',
-    '- Is creative and unique',
-    '- Is relevant to the provided criteria',
-    '- Is a tangible product or a well-defined experience',
-    '- Includes at least 1-2 valid purchase links',
-    '- Has relevant valid product images urls'
+    '- Is creative and unique and meaning and why is it perfect',
+    // '- Is relevant to the provided criteria',
+    // '- Is a tangible product or a well-defined experience',
+    // '- Includes at least 1-2 valid purchase links',
+    // '- Has relevant valid product images urls'
   ];
 
   if (request.previouslyGeneratedGifts?.length) {
