@@ -5,19 +5,19 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { Nunito } from 'next/font/google';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sprout, Flower2, Trees, Droplets, Gift as GiftIcon, X, ArrowLeft, Sun, Moon, Link as LinkIcon, Sparkles, Gift } from 'lucide-react';
+import { Gift as GiftIcon, X, Sun, Moon, Link as LinkIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
-const nunito = Nunito({ subsets: ['latin'] });
+const nunito = Nunito({ subsets: ['latin'], weight:['400','600','700'] });
 
 // --- Interfaces & Types ---
 interface Gift { id: string; name: string; description: string; estimatedPrice?: string; tags?: string[]; links?: string[]; images?: string[]; }
 
 // --- Reusable Components ---
 const Background = () => (
-  <div className="absolute inset-0 z-0 overflow-hidden bg-white dark:bg-gray-900">
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-br from-green-100 via-transparent to-transparent dark:from-green-900/30" />
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute bottom-0 right-0 w-1/2 h-full bg-gradient-to-tl from-emerald-100 via-transparent to-transparent dark:from-emerald-900/30" />
+  <div className="absolute inset-0 z-0 overflow-hidden bg-emerald-50 dark:bg-gray-900">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-lime-200/50 via-transparent to-transparent dark:from-lime-900/30 rounded-full blur-3xl" />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }} className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tl from-teal-200/50 via-transparent to-transparent dark:from-teal-900/30 rounded-full blur-3xl" />
   </div>
 );
 
@@ -42,66 +42,81 @@ export default function Home() {
   const [form, setForm] = useState({ recipient: '', occasion: '', vibe: [] as string[] });
   const [generatedGifts, setGeneratedGifts] = useState<Gift[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isHolding, setIsHolding] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [noResults, setNoResults] = useState(false);
   const [activeGift, setActiveGift] = useState<Gift | null>(null);
   const [loadingText, setLoadingText] = useState("Planting seeds of inspiration... 🌱");
-  const holdTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [loadingIndex, setLoadingIndex] = useState(0);
 
   const { theme, setTheme } = useTheme();
 
   const steps = [
-    { key: 'recipient', question: "Who are we celebrating?", options: (process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')[0]) || []) },
-    { key: 'occasion', question: "What’s the occasion?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
-    { key: 'vibe', question: "What the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'recipient', question: "Who are we planting this gift for?", options: (process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'occasion', question: "What's blooming today?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'vibe', question: "What colors the garden?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
   ];
 
   const gardenLoadingTexts = [
-    "Planting seeds of inspiration... 🌱",
-    "Watering your gift ideas... 💧",
-    "Waiting for them to bloom... 🌸",
-    "Pulling the weeds to find the best gifts... 🌿",
-    "Harvesting your surprises... 🍎",
+    "Planting seeds...",
+    "Watering ideas...",
+    "Waiting to bloom...",
+    "Harvesting surprises...",
   ];
+
+  // Rotate loading text every 2 seconds
+  useEffect(() => {
+    if (!isGenerating) return;
+    
+    const interval = setInterval(() => {
+      setLoadingIndex(prev => (prev + 1) % gardenLoadingTexts.length);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isGenerating, gardenLoadingTexts.length]);
+
+  // Update loading text when index changes
+  useEffect(() => {
+    if (isGenerating) {
+      setLoadingText(gardenLoadingTexts[loadingIndex]);
+    }
+  }, [loadingIndex, isGenerating, gardenLoadingTexts]);
 
   const handleSelect = (key: keyof typeof form, value: string) => {
     if (key === 'vibe') {
       setForm(prev => ({ ...prev, vibe: prev.vibe.includes(value) ? prev.vibe.filter(v => v !== value) : [...prev.vibe, value] }));
     } else {
       setForm(prev => ({ ...prev, [key]: value }));
-      setTimeout(() => setStep(s => s + 1), 300);
+      // Auto-advance to next step for non-multi-select fields
+      setTimeout(() => {
+        if (step < steps.length - 1) {
+          setStep(s => s + 1);
+        }
+      }, 300);
     }
   };
 
-  const generateGifts = useCallback(async () => {
+  const generateGifts = async () => {
+    if (isGenerating || !form.recipient || !form.occasion) return;
     setIsGenerating(true);
-    setIsHolding(false);
     setNoResults(false);
-    setLoadingText(gardenLoadingTexts[Math.floor(Math.random() * gardenLoadingTexts.length)]);
+    setLoadingIndex(0);
+    setLoadingText(gardenLoadingTexts[0]);
+    
     try {
       const response = await fetch('/api/generate-gifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, description: '' }) });
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
       if (data.gifts && data.gifts.length > 0) {
         setGeneratedGifts(data.gifts.map((g: any) => ({ ...g, id: g.id || uuidv4() })));
-        setShowResults(true);
       } else {
         setNoResults(true);
-        setShowResults(true);
       }
+      setShowResults(true);
     } catch (error) { console.error("Failed to generate gifts:", error); setNoResults(true); setShowResults(true); }
     finally { setIsGenerating(false); }
-  }, [form]);
+  };
 
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-    if (isHolding) timeoutId = setTimeout(generateGifts, 1500);
-    return () => { if (timeoutId) clearTimeout(timeoutId); };
-  }, [isHolding, generateGifts]);
-
-  const startHold = () => { if (step === steps.length - 1) setIsHolding(true); };
-  const endHold = () => setIsHolding(false);
+  const nextStep = () => setStep(s => s < steps.length - 1 ? s + 1 : s);
   const prevStep = () => setStep(s => s > 0 ? s - 1 : 0);
 
   const restart = () => {
@@ -110,19 +125,19 @@ export default function Home() {
 
   const currentStep = steps[step];
   const isFinalStep = step === steps.length - 1;
+  const canProceed = form.recipient && (step > 0 ? form.occasion : true);
 
   return (
-    <div className={`min-h-screen w-full bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300 ${nunito.className}`}>
+    <div className={`min-h-screen w-full bg-emerald-50 dark:bg-gray-900 text-stone-800 dark:text-gray-200 transition-colors duration-300 ${nunito.className}`}>
       <Background />
       <header className="fixed top-0 left-0 right-0 p-4 px-8 flex justify-between items-center z-30">
         <div className="flex items-center gap-2 font-bold text-lg cursor-pointer" onClick={restart}>
-          <Flower2 className="text-green-600" />
-          <span className="dark:text-white">GiftGarden</span>
+          <span className="text-green-600">GiftGarden</span>
         </div>
-        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="relative flex items-center justify-center w-10 h-10 rounded-full bg-gray-100/50 dark:bg-gray-800/50 hover:bg-gray-200/80 dark:hover:bg-gray-700/80 backdrop-blur-sm transition-colors">
-          <div className="relative w-6 h-6">
-            <Sun className="absolute inset-0 text-gray-800 dark:text-transparent scale-100 dark:scale-0 transition-all duration-300" />
-            <Moon className="absolute inset-0 text-transparent dark:text-gray-200 scale-0 dark:scale-100 transition-all duration-300" />
+        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="flex items-center justify-center w-10 h-10 rounded-full bg-white/50 dark:bg-gray-800/50 hover:bg-emerald-100/50 dark:hover:bg-gray-700/50 backdrop-blur-sm transition-colors">
+          <div className="relative w-5 h-5 flex items-center justify-center">
+            <Sun className="absolute text-stone-800 dark:text-transparent scale-100 dark:scale-0 transition-all duration-300" />
+            <Moon className="absolute text-transparent dark:text-gray-200 scale-0 dark:scale-100 transition-all duration-300" />
           </div>
         </button>
       </header>
@@ -131,17 +146,14 @@ export default function Home() {
         <AnimatePresence mode="wait">
           {isGenerating ? (
             <motion.div key="generating" {...fadeAnim} className="text-center">
-              <motion.div animate={{ rotate: 360, scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg mb-6 mx-auto">
-                <Sprout className="w-10 h-10 text-white" />
-              </motion.div>
               <h2 className="text-2xl font-bold dark:text-white">{loadingText}</h2>
             </motion.div>
           ) : showResults ? (
             <motion.div key="results" {...fadeAnim} className="w-full h-full flex flex-col items-center">
               {noResults ? (
                 <div className="text-center m-auto">
-                  <h2 className="text-3xl font-bold mb-4">🌱 Nothing Sprouted</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-8">Looks like this garden was empty. <br/>Let’s plant again!</p>
+                  <h2 className="text-3xl font-bold mb-4">Nothing Sprouted</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8">Let's plant again!</p>
                   <div className="flex items-center justify-center gap-4">
                     <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-green-500 text-white hover:scale-105 transition-transform">
                       Try Again
@@ -153,7 +165,7 @@ export default function Home() {
                 </div>
               ) : (
                 <>
-                  <h2 className="text-center text-3xl font-bold pt-20 pb-8">🌼 Your garden bloomed with gifts...</h2>
+                  <h2 className="text-center text-3xl font-bold pt-20 pb-8">Your garden bloomed!</h2>
                   <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {generatedGifts.map(gift => <GiftCard key={gift.id} gift={gift} onClick={() => setActiveGift(gift)} />)}
                   </div>
@@ -173,32 +185,22 @@ export default function Home() {
 
               <div className="min-h-[300px] flex flex-col justify-center">
                 <div className="flex flex-wrap justify-center gap-3">
-                  {currentStep.options?.map(opt => <OptionPill key={opt} label={opt} isSelected={Array.isArray(form[currentStep.key as keyof typeof form]) ? form[currentStep.key as keyof typeof form].includes(opt) : form[currentStep.key as keyof typeof form] === opt} onClick={() => handleSelect(currentStep.key as keyof typeof form, opt)} />)}
+                  {currentStep.options?.map(value => <OptionPill key={value} label={value} isSelected={Array.isArray(form[currentStep.key as keyof typeof form]) ? form[currentStep.key as keyof typeof form].includes(value) : form[currentStep.key as keyof typeof form] === value} onClick={() => handleSelect(currentStep.key as keyof typeof form, value)} />)}
                 </div>
               </div>
 
-              <div className="h-20">
+              <div className="h-20 flex items-center justify-center gap-4">
+                <button onClick={prevStep} disabled={step === 0} className="flex items-center justify-center w-12 h-12 rounded-full font-semibold bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
                 {isFinalStep ? (
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">Lets discover amazing gift ideas from the garden!</p>
-                    <div onMouseDown={startHold} onMouseUp={endHold} onTouchStart={startHold} onTouchEnd={endHold} className="relative w-24 h-24 mx-auto cursor-pointer">
-                      <AnimatePresence>{isHolding && <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="absolute inset-0 border-4 border-green-400 rounded-full" />}</AnimatePresence>
-                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="w-full h-full bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg">
-                        <Gift className="w-10 h-10 text-white" />
-                      </motion.div>
-                    </div>
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <button onClick={prevStep} className="flex items-center gap-2 mx-auto px-4 py-2 rounded-full font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                      <ArrowLeft className="w-5 h-5" /> Back
-                    </button>
-                  </motion.div>
-                  </motion.div>
-                ) : step > 0 && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <button onClick={prevStep} className="flex items-center gap-2 mx-auto px-4 py-2 rounded-full font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                      <ArrowLeft className="w-5 h-5" /> Back
-                    </button>
-                  </motion.div>
+                  <button onClick={generateGifts} disabled={isGenerating || !canProceed} className="px-6 py-3 rounded-full font-bold bg-gradient-to-r from-green-500 to-teal-500 text-white shadow-lg hover:scale-105 disabled:opacity-50 transition-all">
+                    Grow Gifts
+                  </button>
+                ) : (
+                  <button onClick={nextStep} disabled={!canProceed} className="flex items-center justify-center w-12 h-12 rounded-full font-semibold bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 disabled:opacity-50 transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 )}
               </div>
             </motion.div>
@@ -216,7 +218,7 @@ const fadeAnim = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opa
 
 const OptionPill: FC<{ label: string; isSelected: boolean; onClick: () => void; }> = ({ label, isSelected, onClick }) => (
   <motion.button whileTap={{ scale: 0.95 }} onClick={onClick} className={`px-5 py-3 text-lg font-semibold rounded-full border-2 transition-all duration-200 ${isSelected ? 'bg-green-500 border-green-500 text-white shadow-lg' : 'bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-400'}`}>
-    {label}
+    {label.charAt(0).toUpperCase() + label.slice(1)}
   </motion.button>
 );
 
