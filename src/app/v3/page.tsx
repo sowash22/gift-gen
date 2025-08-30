@@ -51,9 +51,9 @@ export default function Home() {
   const { theme, setTheme } = useTheme();
 
   const steps = [
-    { key: 'recipient', question: "Who are we planting this gift for?", options: (process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')[0]) || []) },
-    { key: 'occasion', question: "What's blooming today?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
-    { key: 'vibe', question: "What colors the garden?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'recipient', question: "Who are we celebrating?", options: (process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'occasion', question: "What's the special occasion?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'vibe', question: "What the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
   ];
 
   const gardenLoadingTexts = [
@@ -91,7 +91,7 @@ export default function Home() {
         if (step < steps.length - 1) {
           setStep(s => s + 1);
         }
-      }, 300);
+      }, 500);
     }
   };
 
