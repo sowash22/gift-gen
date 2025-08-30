@@ -139,9 +139,16 @@ export default function Home() {
             <motion.div key="results" {...fadeAnim} className="w-full h-full flex flex-col items-center">
               {noResults ? (
                 <div className="text-center m-auto">
-                  <h2 className="text-3xl font-bold mb-4">Oops!</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-8">We couldn't find any gifts with these options. <br/>Please try a different combination.</p>
-                  <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-rose-500 text-white hover:scale-105 transition-transform">Try Again</button>
+                  <h2 className="text-3xl font-bold mb-4">Oops! No Gifts Found</h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8">We couldn't find any gifts with that combination. <br/>Let's try again!</p>
+                  <div className="flex items-center justify-center gap-4">
+                    <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-rose-500 text-white hover:scale-105 transition-transform">
+                      Try Again
+                    </button>
+                    <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                      Home
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
