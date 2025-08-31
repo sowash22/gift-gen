@@ -50,6 +50,7 @@ export default function Home() {
   const [loadingText, setLoadingText] = useState("Finding perfect gifts...");
   const [loadingIndex, setLoadingIndex] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const isInitialLoad = useRef(true);
 
   const { theme, setTheme } = useTheme();
 
@@ -70,6 +71,12 @@ export default function Home() {
   useEffect(() => {
     if (isGenerating) setLoadingText(loadingTexts[loadingIndex]);
   }, [loadingIndex, isGenerating, loadingTexts]);
+
+  // Effect for scrolling to results
+  useEffect(() => {
+    if (isInitialLoad.current) return;
+    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [currentPage]);
 
   const handleSelect = (key: keyof typeof form, value: string) => {
     if (key === 'vibe') {
@@ -102,10 +109,10 @@ export default function Home() {
           const newPageIndex = giftPages.length;
           setGiftPages(prev => [...prev, newGifts]);
           setCurrentPage(newPageIndex);
-          setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
         } else {
           setGiftPages([newGifts]);
           setCurrentPage(0);
+          isInitialLoad.current = false; // Allow scrolling on subsequent page changes
         }
       } else {
         if (!discoverMore) setNoResults(true);
@@ -122,7 +129,7 @@ export default function Home() {
   const prevStep = () => setStep(s => s > 0 ? s - 1 : 0);
 
   const restart = () => {
-    setStep(0); setForm({ recipient: '', occasion: '', vibe: [] }); setGiftPages([]); setCurrentPage(0); setShowResults(false); setActiveGift(null); setNoResults(false);
+    setStep(0); setForm({ recipient: '', occasion: '', vibe: [] }); setGiftPages([]); setCurrentPage(0); setShowResults(false); setActiveGift(null); setNoResults(false); isInitialLoad.current = true;
   };
 
   const currentStepData = steps[step];
