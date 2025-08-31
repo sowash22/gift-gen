@@ -175,7 +175,7 @@ export default function Home() {
                 <>
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
                     <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2></div>
-                    <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p>
+                    {/* <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p> */}
                   </motion.div>
                   <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
                     {giftPages[currentPage]?.map((gift, index) => <motion.div key={gift.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.4 }}><GiftCard gift={gift} onClick={() => setActiveGift(gift)} /></motion.div>)}
