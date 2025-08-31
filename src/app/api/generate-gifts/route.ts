@@ -42,6 +42,76 @@ interface GenerationResult {
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
+function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
+  const parts = [
+    `Generate ${giftCount} unique and creative gift ideas based on the following criteria:`,
+    request.recipient ? `Recipient: ${request.recipient}` : '',
+    request.occasion ? `Occasion: ${request.occasion}` : '',
+    request.vibe ? `Vibe/Style: ${request?.vibe?.join(',')}` : '',
+    // request.budget ? `Budget: ${request.budget}` : '',
+    request.description ? `Description: ${request.description}` : '',
+    '',
+    'For each gift idea, provide:',
+    '- A creative name',
+    '- A brief description explaining why it\'s a great gift',
+    // '- An estimated price range',
+    // '- Relevant tags/keywords',
+    '- Valid one purchase URL (to major retailers like Google shopping, Amazon, Target, Walmart, Bestbuy, other popular online retailers etc.)',
+    '- Valid one product image URL or stock image URL',
+    '',
+    'Ensure each gift idea:',
+    '- Is creative and unique and meaning and why is it perfect',
+    // '- Is relevant to the provided criteria',
+    // '- Is a tangible product or a well-defined experience',
+    '- Includes one valid purchase url',
+    '- Includes one valid product image url'
+  ];
+
+  if (request.previouslyGeneratedGifts?.length) {
+    parts.push('', `Avoid these previously generated gift ideas: ${request.previouslyGeneratedGifts.join(', ')}`);
+  }
+
+  return parts.filter(Boolean).join('\n');
+}
+
+function parseGeminiResponse(response: string, giftCount: number): Gift[] {
+  try {
+    // The response is expected to be a JSON string, sometimes it may have ```json markdown, so we remove it
+    const cleanedResponse = response.replace(/```json/g, '').replace(/```/g, '');
+    const parsedResponse = JSON.parse(cleanedResponse);
+    
+    if (!Array.isArray(parsedResponse)) {
+      throw new Error('Invalid response structure - expected array');
+    }
+
+    const validGifts = parsedResponse
+      .filter(giftData => 
+        giftData && 
+        typeof giftData.name === 'string' &&
+        typeof giftData.description === 'string'
+      )
+      .slice(0, giftCount)
+      .map(giftData => ({
+        id: uuidv4(),
+        name: giftData.name,
+        description: giftData.description,
+        estimatedPrice: giftData.estimatedPrice,
+        tags: Array.isArray(giftData.tags) ? giftData.tags : [],
+        links: Array.isArray(giftData.links) ? giftData.links : [],
+        images: Array.isArray(giftData.images) ? giftData.images : [],
+      }));
+
+    if (validGifts.length === 0) {
+      throw new Error('No valid gifts in response');
+    }
+
+    return validGifts;
+  } catch (e) {
+    console.error('Error parsing the gemini response', e, response);
+    throw new Error('Failed to parse LLM response');
+  }
+}
+
 // Main generation function with fallback chain
 async function generateGifts(request: GenerateGiftsRequest): Promise<GenerationResult> {
   const cleanRequest = validateRequest(request);
@@ -103,6 +173,11 @@ interface GenerateWithLLMResult {
   retryCount: number;
 }
 
+// Define the grounding tool
+const groundingTool = {
+  googleSearch: {},
+};
+
 async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateWithLLMResult> {
   if (!geminiApiKey) {
     throw new Error('Gemini API key not configured');
@@ -134,8 +209,9 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
         model: currentModel,
         contents: prompt,
         config: {
-          temperature: 0.9,
+          temperature: 0.7,
           maxOutputTokens: 1024,
+          tools: [groundingTool],
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.ARRAY,
@@ -194,76 +270,6 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
   // If all retry attempts failed, throw the last error
   console.error('❌ All retry attempts failed');
   throw new Error(`Failed to generate gifts after ${models.length} attempts. Last error: ${lastError?.message}`);
-}
-
-function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
-  const parts = [
-    `Generate ${giftCount} unique and creative gift ideas based on the following criteria:`,
-    request.recipient ? `Recipient: ${request.recipient}` : '',
-    request.occasion ? `Occasion: ${request.occasion}` : '',
-    request.vibe ? `Vibe/Style: ${request?.vibe?.join(',')}` : '',
-    // request.budget ? `Budget: ${request.budget}` : '',
-    request.description ? `Description: ${request.description}` : '',
-    '',
-    'For each gift idea, provide:',
-    '- A creative name',
-    '- A brief description explaining why it\'s a great gift',
-    // '- An estimated price range',
-    // '- Relevant tags/keywords',
-    '- Valid purchase links (URLs to major retailers like Google shopping, Amazon, Target, Walmart, Bestbuy, other popular online retailers etc.)',
-    '- Valid product image URLs or stock image URLs',
-    '',
-    'Ensure each gift idea:',
-    '- Is creative and unique and meaning and why is it perfect',
-    // '- Is relevant to the provided criteria',
-    // '- Is a tangible product or a well-defined experience',
-    '- Includes at least 1-2 valid purchase links',
-    '- Includes relevant product images urls'
-  ];
-
-  if (request.previouslyGeneratedGifts?.length) {
-    parts.push('', `Avoid these previously generated gift ideas: ${request.previouslyGeneratedGifts.join(', ')}`);
-  }
-
-  return parts.filter(Boolean).join('\n');
-}
-
-function parseGeminiResponse(response: string, giftCount: number): Gift[] {
-  try {
-    // The response is expected to be a JSON string, sometimes it may have ```json markdown, so we remove it
-    const cleanedResponse = response.replace(/```json/g, '').replace(/```/g, '');
-    const parsedResponse = JSON.parse(cleanedResponse);
-    
-    if (!Array.isArray(parsedResponse)) {
-      throw new Error('Invalid response structure - expected array');
-    }
-
-    const validGifts = parsedResponse
-      .filter(giftData => 
-        giftData && 
-        typeof giftData.name === 'string' &&
-        typeof giftData.description === 'string'
-      )
-      .slice(0, giftCount)
-      .map(giftData => ({
-        id: uuidv4(),
-        name: giftData.name,
-        description: giftData.description,
-        estimatedPrice: giftData.estimatedPrice,
-        tags: Array.isArray(giftData.tags) ? giftData.tags : [],
-        links: Array.isArray(giftData.links) ? giftData.links : [],
-        images: Array.isArray(giftData.images) ? giftData.images : [],
-      }));
-
-    if (validGifts.length === 0) {
-      throw new Error('No valid gifts in response');
-    }
-
-    return validGifts;
-  } catch (e) {
-    console.error('Error parsing the gemini response', e, response);
-    throw new Error('Failed to parse LLM response');
-  }
 }
 
 
