@@ -173,11 +173,19 @@ export default function Home() {
                   <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
                     {giftPages[currentPage]?.map((gift, index) => <motion.div key={gift.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.4 }}><GiftCard gift={gift} onClick={() => setActiveGift(gift)} /></motion.div>)}
                   </motion.div>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
-                    <button onClick={restart} className="w-full sm:w-auto px-8 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">Restart</button>
-                    <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0} className="w-full sm:w-auto px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"><ChevronLeft/> Back</button>
-                    <button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= giftPages.length - 1} className="w-full sm:w-auto px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">Next <ChevronRight/></button>
-                    <button onClick={() => generateGifts(true)} disabled={isGenerating} className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"><Sparkles className="w-5 h-5" />Discover More</button>
+                  <div className="mt-12 grid grid-cols-2 sm:flex sm:flex-row justify-center gap-4">
+                    <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0} className="px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                        <ChevronLeft/> Back
+                    </button>
+                    <button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= giftPages.length - 1} className="px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                        Next <ChevronRight/>
+                    </button>
+                    <button onClick={restart} className="px-8 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                        Restart
+                    </button>
+                    <button onClick={() => generateGifts(true)} disabled={isGenerating} className="px-8 py-3 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2">
+                        <Sparkles className="w-5 h-5" />Discover More
+                    </button>
                   </div>
                 </>
               )}
