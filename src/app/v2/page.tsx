@@ -167,8 +167,8 @@ export default function Home() {
               ) : (
                 <>
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-                    <div className="flex items-center justify-center gap-3 mb-4"><Star className="w-8 h-8 text-yellow-500" /><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2><Star className="w-8 h-8 text-yellow-500" /></div>
-                    <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p>
+                    <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2></div>
+                    {/* <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p> */}
                   </motion.div>
                   <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
                     {giftPages[currentPage]?.map((gift, index) => <motion.div key={gift.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.4 }}><GiftCard gift={gift} onClick={() => setActiveGift(gift)} /></motion.div>)}
@@ -184,7 +184,8 @@ export default function Home() {
                         Restart
                     </button>
                     <button onClick={() => generateGifts(true)} disabled={isGenerating} className="px-8 py-3 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2">
-                        <Sparkles className="w-5 h-5" />Discover More
+                        {/* <Sparkles className="w-5 h-5" /> */}
+                        Discover More
                     </button>
                   </div>
                 </>
@@ -196,7 +197,8 @@ export default function Home() {
               <div className="mb-16"><motion.div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>{currentStepData.options?.map((value, index) => <motion.div key={value} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05, duration: 0.3 }}><OptionPill label={value} isSelected={Array.isArray(form[currentStepData.key as keyof typeof form]) ? form[currentStepData.key as keyof typeof form].includes(value) : form[currentStepData.key as keyof typeof form] === value} onClick={() => handleSelect(currentStepData.key as keyof typeof form, value)} /></motion.div>)}</motion.div></div>
               <div className="flex items-center justify-center gap-6">
                 <motion.button onClick={prevStep} disabled={step === 0} {...navButtonAnim} className="flex items-center justify-center w-14 h-14 rounded-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm"><ChevronLeft className="w-6 h-6" /></motion.button>
-                {isFinalStep ? <motion.button onClick={() => generateGifts()} disabled={isGenerating || !canProceed} {...ctaButtonAnim} className="relative px-10 py-4 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 text-white rounded-full font-semibold text-lg shadow-xl hover:shadow-2xl disabled:opacity-50 transition-all overflow-hidden"><motion.div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0" initial={{ x: '-100%' }} whileHover={{ x: '100%' }} transition={{ duration: 0.8 }} /><div className="relative flex items-center gap-3"><Sparkles className="w-6 h-6" />Find Perfect Gifts<ArrowRight className="w-6 h-6" /></div></motion.button> : <motion.button onClick={nextStep} disabled={!canProceed} {...navButtonAnim} className="flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-gray-700 to-gray-800 dark:from-gray-200 dark:to-gray-300 text-white dark:text-gray-800 disabled:opacity-30 hover:from-gray-600 hover:to-gray-700 dark:hover:from-gray-300 dark:hover:to-gray-400 transition-all shadow-lg"><ChevronRight className="w-6 h-6" /></motion.button>}
+                {isFinalStep ? <motion.button onClick={() => generateGifts()} disabled={isGenerating || !canProceed} {...ctaButtonAnim} className="relative px-10 py-4 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 text-white rounded-full font-semibold text-lg shadow-xl hover:shadow-2xl disabled:opacity-50 transition-all overflow-hidden"><motion.div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0" initial={{ x: '-100%' }} whileHover={{ x: '100%' }} transition={{ duration: 0.8 }} /><div className="relative flex items-center gap-3">
+                  <Sparkles className="w-6 h-6" />Find Perfect Gifts<ArrowRight className="w-6 h-6" /></div></motion.button> : <motion.button onClick={nextStep} disabled={!canProceed} {...navButtonAnim} className="flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-gray-700 to-gray-800 dark:from-gray-200 dark:to-gray-300 text-white dark:text-gray-800 disabled:opacity-30 hover:from-gray-600 hover:to-gray-700 dark:hover:from-gray-300 dark:hover:to-gray-400 transition-all shadow-lg"><ChevronRight className="w-6 h-6" /></motion.button>}
               </div>
             </motion.div>
           )}
