@@ -41,6 +41,7 @@ const ImageWithFallback: FC<{ src: string; alt: string; className?: string; }> =
 export default function Home() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ recipient: '', occasion: '', vibe: [] as string[] });
+  const [description, setDescription] = useState('');
   const [giftPages, setGiftPages] = useState<Gift[][]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -101,7 +102,7 @@ export default function Home() {
       const response = await fetch('/api/generate-gifts', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ ...form, description: '', previouslyGeneratedGifts })
+        body: JSON.stringify({ ...form, description: description.trim(), previouslyGeneratedGifts })
       });
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
@@ -131,7 +132,7 @@ export default function Home() {
   const prevStep = () => { setHasNavigatedBack(true); setStep(s => s > 0 ? s - 1 : 0); };
 
   const restart = () => {
-    setStep(0); setForm({ recipient: '', occasion: '', vibe: [] }); setGiftPages([]); setCurrentPage(0); setShowResults(false); setActiveGift(null); setNoResults(false); isInitialLoad.current = true; setHasNavigatedBack(false);
+    setStep(0); setForm({ recipient: '', occasion: '', vibe: [] }); setDescription(''); setGiftPages([]); setCurrentPage(0); setShowResults(false); setActiveGift(null); setNoResults(false); isInitialLoad.current = true; setHasNavigatedBack(false);
   };
 
   const currentStepData = steps[step];
@@ -146,8 +147,11 @@ export default function Home() {
           <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg"><GiftIcon className="w-6 h-6" /></div>
           GiftGarden
         </motion.div>
-        <motion.button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-12 h-12 rounded-full bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 flex items-center justify-center hover:bg-white/90 dark:hover:bg-gray-700/90 transition-all shadow-sm">
-          <Sun className="w-5 h-5 text-amber-500 dark:opacity-0 dark:scale-0 transition-all duration-300" /><Moon className="w-5 h-5 text-blue-400 absolute opacity-0 scale-0 dark:opacity-100 dark:scale-100 transition-all duration-300" />
+        <motion.button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-white/90 dark:hover:bg-gray-700/90 transition-all shadow-sm">
+          <div className="relative w-5 h-5">
+            <Sun className="absolute inset-0 text-amber-500 dark:opacity-0 dark:scale-0 transition-all duration-300" />
+            <Moon className="absolute inset-0 text-blue-400 opacity-0 scale-0 dark:opacity-100 dark:scale-100 transition-all duration-300" />
+          </div>
         </motion.button>
       </header>
 
@@ -166,16 +170,12 @@ export default function Home() {
           ) : showResults ? (
             <motion.div ref={resultsRef} key="results" {...fadeAnim} className="w-full max-w-7xl">
               {noResults ? (
-                <div className="text-center"><div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"><Heart className="w-12 h-12 text-white" /></div><h2 className="text-3xl font-bold mb-4 text-gray-700 dark:text-gray-200">Oops! Nothing found</h2><p className="text-gray-600 dark:text-gray-400 mb-8">Let's try different preferences and find something amazing!</p><button onClick={restart} className="px-8 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg">Try Again 🌟</button></div>
+                <div className="text-center"><div className="w-24 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"><Heart className="w-12 h-12 text-white" /></div><h2 className="text-3xl font-bold mb-4 text-gray-700 dark:text-gray-200">Oops! Nothing found</h2><p className="text-gray-600 dark:text-gray-400 mb-8">Let's try different preferences and find something amazing!</p><button onClick={restart} className="px-8 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg">Try Again 🌟</button></div>
               ) : (
                 <>
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      {/* <Star className="w-8 h-8 text-yellow-500" /> */}
-                      <h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2>
-                      {/* <Star className="w-8 h-8 text-yellow-500" /> */}
-                    </div>
-                    {/* <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p> */}
+                    <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2></div>
+                    <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p>
                   </motion.div>
                   <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
                     {giftPages[currentPage]?.map((gift, index) => <motion.div key={gift.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.4 }}><GiftCard gift={gift} onClick={() => setActiveGift(gift)} /></motion.div>)}
@@ -191,11 +191,38 @@ export default function Home() {
             </motion.div>
           ) : (
             <motion.div key="form" {...fadeAnim} className="w-full max-w-4xl text-center">
-              <motion.div className="mb-16"><AnimatePresence mode="wait"><motion.h1 key={step} {...fadeAnim} transition={{ duration: 0.4 }} className="text-4xl md:text-5xl font-bold mb-6 text-gray-800 dark:text-gray-100">{currentStepData.question}</motion.h1></AnimatePresence></motion.div>
-              <div className="mb-16"><motion.div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>{currentStepData.options?.map((value, index) => <motion.div key={value} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05, duration: 0.3 }}><OptionPill label={value} isSelected={Array.isArray(form[currentStepData.key as keyof typeof form]) ? form[currentStepData.key as keyof typeof form].includes(value) : form[currentStepData.key as keyof typeof form] === value} onClick={() => handleSelect(currentStepData.key as keyof typeof form, value)} /></motion.div>)}</motion.div></div>
-              <div className="flex items-center justify-center gap-6">
+              <motion.div className="mb-12 h-12 flex items-center justify-center">
+                <AnimatePresence mode="wait">
+                  <motion.h1 key={step} {...fadeAnim} transition={{ duration: 0.4 }} className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">
+                    {currentStepData.question}
+                  </motion.h1>
+                </AnimatePresence>
+              </motion.div>
+              
+              <div className="min-h-[250px] flex flex-col justify-center">
+                <motion.div className="flex flex-wrap justify-center gap-4 max-w-3xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                  {currentStepData.options?.map((value, index) => <motion.div key={value} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05, duration: 0.3 }}><OptionPill label={value} isSelected={Array.isArray(form[currentStepData.key as keyof typeof form]) ? form[currentStepData.key as keyof typeof form].includes(value) : form[currentStepData.key as keyof typeof form] === value} onClick={() => handleSelect(currentStepData.key as keyof typeof form, value)} /></motion.div>)}
+                </motion.div>
+              </div>
+
+              <div className="h-40">
+                {isFinalStep && (
+                  <motion.div initial={{opacity: 0, y: 20}} animate={{opacity: 1, y: 0}} transition={{delay: 0.4}} className="mt-8 w-full max-w-lg mx-auto text-left">
+                    <label className="font-semibold text-gray-700 dark:text-gray-300">Tell us more?</label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Tell me more about the person and occasion, anything special?"
+                      className="mt-2 w-full p-4 text-base bg-white/80 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-gray-700 rounded-2xl focus:border-green-500 dark:focus:border-green-500 outline-none transition-colors resize-none"
+                      rows={3}
+                    />
+                  </motion.div>
+                )}
+              </div>
+
+              <div className="h-20 flex items-center justify-center gap-6">
                 <motion.button onClick={prevStep} disabled={step === 0} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className={`flex items-center justify-center w-14 h-14 rounded-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm ${step > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}><ChevronLeft className="w-6 h-6" /></motion.button>
-                {isFinalStep ? <motion.button onClick={() => generateGifts()} disabled={isGenerating || !canProceed} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="relative px-10 py-4 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 text-white rounded-full font-semibold text-lg shadow-xl hover:shadow-2xl disabled:opacity-50 transition-all overflow-hidden"><motion.div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0" initial={{ x: '-100%' }} whileHover={{ x: '100%' }} transition={{ duration: 0.8 }} /><div className="relative flex items-center gap-3"><Sparkles className="w-6 h-6" />Find Perfect Gifts<ArrowRight className="w-6 h-6" /></div></motion.button> : (hasNavigatedBack && <motion.button onClick={nextStep} disabled={!canProceed} whileHover={{ scale: !canProceed ? 1 : 1.05 }} whileTap={{ scale: !canProceed ? 1 : 0.95 }} className="flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-gray-700 to-gray-800 dark:from-gray-200 dark:to-gray-300 text-white dark:text-gray-800 disabled:opacity-30 hover:from-gray-600 hover:to-gray-700 dark:hover:from-gray-300 dark:hover:to-gray-400 transition-all shadow-lg"><ChevronRight className="w-6 h-6" /></motion.button>)}
+                {isFinalStep ? <motion.button onClick={() => generateGifts()} disabled={isGenerating || !canProceed} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="relative px-10 py-4 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 text-white rounded-full font-semibold text-lg shadow-xl hover:shadow-2xl disabled:opacity-50 transition-all overflow-hidden"><motion.div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0" initial={{ x: '-100%' }} whileHover={{ x: '100%' }} transition={{ duration: 0.8 }} /><div className="relative flex items-center gap-3"><Sparkles className="w-6 h-6" />Find Perfect Gifts<ArrowRight className="w-6 h-6" /></div></motion.button> : (hasNavigatedBack && <motion.button onClick={nextStep} disabled={!canProceed} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-gray-700 to-gray-800 dark:from-gray-200 dark:to-gray-300 text-white dark:text-gray-800 disabled:opacity-30 hover:from-gray-600 hover:to-gray-700 dark:hover:from-gray-300 dark:hover:to-gray-400 transition-all shadow-lg"><ChevronRight className="w-6 h-6" /></motion.button>)}
               </div>
             </motion.div>
           )}
