@@ -108,7 +108,7 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
     throw new Error('Gemini API key not configured');
   }
 
-  const giftCount = parseInt(process.env.NEXT_PUBLIC_TOP_GIFTS || '5', 10);
+  const giftCount = parseInt(process.env.NEXT_PUBLIC_NUM_GIFTS_TO_GENERATE || '8', 10);
   const prompt = buildPrompt(request, giftCount);
   
   // Define fallback models in order of preference
@@ -266,6 +266,46 @@ function parseGeminiResponse(response: string, giftCount: number): Gift[] {
   }
 }
 
+
+
+// Main API handler
+export async function POST(request: NextRequest) {
+  try {
+    const body: GenerateGiftsRequest = await request.json();
+    
+    console.log('ℹ️ Gift generation request received');
+    console.log('ℹ️ Recipient:', body.recipient);
+    console.log('ℹ️ Occasion:', body.occasion);
+    console.log('ℹ️ Vibe:', body.vibe);
+    console.log('ℹ️ Budget:', body.budget);
+    console.log('ℹ️ Description:', body.description);
+    console.log('ℹ️ PreviouslyGeneratedGifts:', body.previouslyGeneratedGifts?.length ? body.previouslyGeneratedGifts.join(',') : 0);
+
+    const result = await generateGifts(body);
+
+    console.log(`✅ Returning ${result.gifts.length} gifts from ${result.source} to client`);
+
+    return NextResponse.json({
+      success: true,
+      gifts: result.gifts,
+      count: result.gifts.length,
+      timestamp: new Date().toISOString(),
+      source: result.source,
+      fallback: result.fallback,
+      retryCount: result?.retryCount || 0,
+      modelUsed: result?.modelUsed || ''
+    });
+
+  } catch (error) {
+    console.error('❌ Fatal error:', error instanceof Error ? error.message : 'Unknown error');
+    return NextResponse.json(
+      { error: 'Failed to generate gifts' },
+      { status: 500 }
+    );
+  }
+}
+
+
 async function saveToDatabase(gifts: Gift[], request: GenerateGiftsRequest): Promise<void> {
   try {
     const batch = db.batch();
@@ -404,41 +444,4 @@ async function getFromDatabase(request: GenerateGiftsRequest): Promise<Gift[]> {
       images: Array.isArray(data.images) ? data.images : [],
     };
   });
-}
-
-// Main API handler
-export async function POST(request: NextRequest) {
-  try {
-    const body: GenerateGiftsRequest = await request.json();
-    
-    console.log('ℹ️ Gift generation request received');
-    console.log('ℹ️ Recipient:', body.recipient);
-    console.log('ℹ️ Occasion:', body.occasion);
-    console.log('ℹ️ Vibe:', body.vibe);
-    console.log('ℹ️ Budget:', body.budget);
-    console.log('ℹ️ Description:', body.description);
-    console.log('ℹ️ PreviouslyGeneratedGifts:', body.previouslyGeneratedGifts?.length ? body.previouslyGeneratedGifts.join(',') : 0);
-
-    const result = await generateGifts(body);
-
-    console.log(`✅ Returning ${result.gifts.length} gifts from ${result.source} to client`);
-
-    return NextResponse.json({
-      success: true,
-      gifts: result.gifts,
-      count: result.gifts.length,
-      timestamp: new Date().toISOString(),
-      source: result.source,
-      fallback: result.fallback,
-      retryCount: result?.retryCount || 0,
-      modelUsed: result?.modelUsed || ''
-    });
-
-  } catch (error) {
-    console.error('❌ Fatal error:', error instanceof Error ? error.message : 'Unknown error');
-    return NextResponse.json(
-      { error: 'Failed to generate gifts' },
-      { status: 500 }
-    );
-  }
 }
