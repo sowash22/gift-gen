@@ -62,7 +62,7 @@ export default function Home() {
     { key: 'vibe', question: "What's the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
   ];
 
-  const loadingTexts = ["Finding amazing gifts... 🎁", "Curating perfect matches... ✨", "Almost there... 🌟"];
+  const loadingTexts = ["Finding amazing gift ideas... 🎁", "Curating perfect matches... ✨", "Almost there... 🌟"];
 
   useEffect(() => {
     if (!isGenerating) return;
@@ -174,7 +174,7 @@ export default function Home() {
               ) : (
                 <>
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-                    <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2></div>
+                    <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts ideas!</h2></div>
                     {/* <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p> */}
                   </motion.div>
                   <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
