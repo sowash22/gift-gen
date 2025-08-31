@@ -149,17 +149,17 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
                 //   type: Type.ARRAY,
                 //   items: { type: Type.STRING }
                 // },
-                // links: { 
-                //   type: Type.ARRAY,
-                //   items: { type: Type.STRING }
-                // },
-                // images: { 
-                //   type: Type.ARRAY,
-                //   items: { type: Type.STRING }
-                // }
+                links: { 
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                },
+                images: { 
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                }
               },
               // propertyOrdering: ["name", "description", "estimatedPrice", "tags", "links", "images"]
-              propertyOrdering: ["name", "description"]
+              propertyOrdering: ["name", "description", "links", "images"]
             }
           },
           systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format."
@@ -210,15 +210,15 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
     '- A brief description explaining why it\'s a great gift',
     // '- An estimated price range',
     // '- Relevant tags/keywords',
-    // '- Valid purchase links (URLs to major retailers like Amazon, Target, Walmart, Bestbuy, other popular online retailers etc.)',
-    // '- Valid product image URLs when available',
+    '- Valid purchase links (URLs to major retailers like Google shopping, Amazon, Target, Walmart, Bestbuy, other popular online retailers etc.)',
+    '- Valid product image URLs or stock image URLs',
     '',
     'Ensure each gift idea:',
     '- Is creative and unique and meaning and why is it perfect',
     // '- Is relevant to the provided criteria',
     // '- Is a tangible product or a well-defined experience',
-    // '- Includes at least 1-2 valid purchase links',
-    // '- Has relevant valid product images urls'
+    '- Includes at least 1-2 valid purchase links',
+    '- Includes relevant product images urls'
   ];
 
   if (request.previouslyGeneratedGifts?.length) {

@@ -62,7 +62,7 @@ export default function Home() {
     { key: 'vibe', question: "What's the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
   ];
 
-  const loadingTexts = ["Finding amazing gift ideas... 🎁", "Curating perfect matches... ✨", "Almost there... 🌟"];
+  const loadingTexts = ["Finding amazing gifts... 🎁", "Curating perfect matches... ✨", "Almost there... 🌟"];
 
   useEffect(() => {
     if (!isGenerating) return;
@@ -170,12 +170,23 @@ export default function Home() {
           ) : showResults ? (
             <motion.div ref={resultsRef} key="results" {...fadeAnim} className="w-full max-w-7xl">
               {noResults ? (
-                <div className="text-center"><div className="w-24 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"><Heart className="w-12 h-12 text-white" /></div><h2 className="text-3xl font-bold mb-4 text-gray-700 dark:text-gray-200">Oops! Nothing found</h2><p className="text-gray-600 dark:text-gray-400 mb-8">Let's try different preferences and find something amazing!</p><button onClick={restart} className="px-8 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg">Try Again 🌟</button></div>
+                <div className="text-center m-auto">
+                  <h2 className="text-3xl font-bold mb-4 text-gray-700 dark:text-gray-200">Oops! Nothing found</h2>
+                  {/* <p className="text-gray-600 dark:text-gray-400 mb-8">Let's try different preferences and find something amazing!</p> */}
+                  <div className="flex items-center justify-center gap-4">
+                    <button onClick={restart} className="px-8 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg">
+                      Try Again
+                    </button>
+                    <button onClick={restart} className="px-8 py-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      Restart
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <>
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-                    <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts ideas!</h2></div>
-                    {/* <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p> */}
+                    <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2></div>
+                    <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p>
                   </motion.div>
                   <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
                     {giftPages[currentPage]?.map((gift, index) => <motion.div key={gift.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.4 }}><GiftCard gift={gift} onClick={() => setActiveGift(gift)} /></motion.div>)}
@@ -191,13 +202,7 @@ export default function Home() {
             </motion.div>
           ) : (
             <motion.div key="form" {...fadeAnim} className="w-full max-w-4xl text-center">
-              <motion.div className="mb-12 h-12 flex items-center justify-center">
-                <AnimatePresence mode="wait">
-                  <motion.h1 key={step} {...fadeAnim} transition={{ duration: 0.4 }} className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">
-                    {currentStepData.question}
-                  </motion.h1>
-                </AnimatePresence>
-              </motion.div>
+              <motion.div className="mb-12 h-12 flex items-center justify-center"><AnimatePresence mode="wait"><motion.h1 key={step} {...fadeAnim} transition={{ duration: 0.4 }} className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">{currentStepData.question}</motion.h1></AnimatePresence></motion.div>
               
               <div className="min-h-[250px] flex flex-col justify-center">
                 <motion.div className="flex flex-wrap justify-center gap-4 max-w-3xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
