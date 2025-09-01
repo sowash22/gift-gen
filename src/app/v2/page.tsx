@@ -171,11 +171,11 @@ export default function Home() {
           ) : showResults ? (
             <motion.div ref={resultsRef} key="results" {...fadeAnim} className="w-full max-w-7xl">
               {noResults ? (
-                <div className="text-center m-auto">
+                <div className="text-center max-w-lg mx-auto">
                   <h2 className="text-3xl font-bold mb-4 text-gray-700 dark:text-gray-200">Oops! Nothing found</h2>
                   {/* <p className="text-gray-600 dark:text-gray-400 mb-8">Let's try different preferences and find something amazing!</p> */}
                   <div className="flex items-center justify-center gap-4">
-                    <button onClick={restart} className="px-8 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg">
+                    <button onClick={() => generateGifts(false)} className="px-8 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg">
                       Try Again
                     </button>
                     <button onClick={restart} className="px-8 py-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
