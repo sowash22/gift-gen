@@ -149,9 +149,9 @@ export default function Home() {
           GiftGarden
         </motion.div>
         <motion.button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-white/90 dark:hover:bg-gray-700/90 transition-all shadow-sm">
-          <div className="relative w-5 h-5">
-            <Sun className="absolute inset-0 text-amber-500 dark:opacity-0 dark:scale-0 transition-all duration-300" />
-            <Moon className="absolute inset-0 text-blue-400 opacity-0 scale-0 dark:opacity-100 dark:scale-100 transition-all duration-300" />
+          <div className="relative w-5 h-5 flex items-center justify-center">
+            <Sun className="absolute w-5 h-5 text-amber-500 dark:opacity-0 dark:scale-0 transition-all duration-300" />
+            <Moon className="absolute w-5 h-5 text-blue-400 opacity-0 scale-0 dark:opacity-100 dark:scale-100 transition-all duration-300" />
           </div>
         </motion.button>
       </header>
@@ -187,7 +187,7 @@ export default function Home() {
                 <>
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
                     <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2></div>
-                    <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length}</p>
                   </motion.div>
                   <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
                     {giftPages[currentPage]?.map((gift, index) => <motion.div key={gift.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.4 }}><GiftCard gift={gift} onClick={() => setActiveGift(gift)} /></motion.div>)}

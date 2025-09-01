@@ -50,19 +50,16 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
     `The response MUST be a JSON array of objects, strictly following the schema described in the system instruction.`,
     `Each gift object must include 'name', 'description', 'links', and 'images'.`,
     // Crucial instruction for tool use:
-    `**IMPORTANT**: For 'links' and 'images', you MUST use the available Google Search tool to find ACTUAL, VALID, and FUNCTIONAL URLs. Do not make up URLs. Search for the product or a very similar product to get a real purchase link and a real product image.`,
+    `**IMPORTANT**: For 'links' and 'images', you MUST use the available Google Search tool to find ACTUAL, VALID, VERIFIED and FUNCTIONAL URLs. Do not make up URLs. Search for the product or a very similar product to get a real purchase link and a real product image.`,
     request.recipient ? `Recipient: ${request.recipient}` : '',
     request.occasion ? `Occasion: ${request.occasion}` : '',
     request.vibe?.length ? `Vibe/Style: ${request.vibe.join(', ')}` : '', // Corrected to join array
-    // request.budget ? `Budget: ${request.budget}` : '',
     request.description ? `Detailed Description: ${request.description}` : '',
     '',
     'For each gift idea, provide the following properties within the JSON object:',
     '- `name`: A creative, engaging name for the gift.',
     '- `description`: A brief, compelling description (2-3 sentences) explaining why it\'s a great gift, highlighting its unique meaning and how it perfectly fits the criteria.',
-    // '- `estimatedPrice`: An estimated price range (e.g., "$20-$50").',
-    // '- `tags`: An array of 3-5 relevant keywords or tags.',
-    '- `links`: An array containing **one** valid, functional purchase URL to a major online retailer (e.g., Google Shopping, Amazon, Target, Walmart, Bestbuy, Etsy, specialized online shops). This link must go directly to a product page and be found via Google Search.',
+    '- `links`: An array containing **one** valid, functional purchase URL to Google Shopping or Amazon. This link must go directly to a product page and be found via Google Search.',
     '- `images`: An array containing **one** valid, functional product image URL or a high-quality stock image URL that visually represents the gift. This image URL must be found via Google Search, related to the product link, or a suitable stock image.',
     '',
     'Ensure each gift idea is:',
@@ -70,7 +67,7 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
     '- Directly relevant to the provided criteria and description.',
     '- A tangible product or a well-defined experience.',
     '- Has all required fields (`name`, `description`, `links`, `images`).',
-    '- Has one valid, functional URL for its `links` array, and one valid, functional URL for its `images` array, both obtained via Google Search.',
+    '- Has one valid, functional URL for its `links` array, and one valid, verfied functional URL for its `images` array, both obtained via Google Search.',
   ];
 
   if (request.previouslyGeneratedGifts?.length) {
@@ -284,7 +281,7 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
               propertyOrdering: ["name", "description", "links", "images"]
             }
           },
-          systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format. You MUST use the Google Search tool to find valid, functional URLs for both 'links' and 'images'. Do not make up any URLs. Each gift's 'links' and 'images' array must contain exactly one URL."
+          systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format. You MUST use the Google Search tool to find valid, functional URLs for both 'links' and 'images'. Do not make up any URLs. Each gift's 'links' and 'images' array must contain exactly one valid verified URL."
         },
         
       });
