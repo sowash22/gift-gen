@@ -15,14 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Name My Pet - AI Pet Naming Assistant",
+  title: "Gift Garden AI - Discover Unique Gift Ideas",
   description:
-    "Find the perfect name for your beloved companion with our AI-powered pet naming assistant. Simple, fast, and delightful pet name suggestions.",
-  keywords: ["pet names", "AI pet name generator", "dog names", "cat names", "pet naming"],
+    "Get AI-powered gift suggestions for personal, creative, and unique gift ideas.",
+  keywords: ["gift ideas", "AI gifts", "personalized gifts", "creative gifts", "unique gifts"],
   icons: {
-    icon: "/pets.png",
-    shortcut: "/pets.png",
-    apple: "/pets.png",
+    icon: "/gift.svg",
+    shortcut: "/gift.svg",
+    apple: "/gift.svg",
   },
   authors: [{ name: "Sowndarya Shanmugam", url: "https://namemypet.app" }],
 };
