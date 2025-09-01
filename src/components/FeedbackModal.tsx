@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState } from 'react';
@@ -6,9 +5,13 @@ import { X, Send, MessageSquare } from 'lucide-react';
 import { analytics } from '@/lib/analytics';
 import { getSessionId } from '@/lib/utils';
 
+interface OnCloseData {
+  feedbackSubmitted?: boolean;
+}
+
 interface FeedbackModalProps {
   isOpen: boolean;
-  onClose: (data?: Record<string, any>) => void;
+  onClose: (data?: OnCloseData) => void;
 }
 
 export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
@@ -35,14 +38,14 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     );
   };
 
-  const handleSubmit = async (giftId : '') => {
+  const handleSubmit = async () => {
     const allSelectedOptions = [...selectedPositiveOptions, ...selectedNegativeOptions];
 
     const feedback = {
       description: feedbackText?.trim() || '',
       positives: selectedPositiveOptions,
       negatives: selectedNegativeOptions,
-      giftId: giftId || sessionStorage.getItem('giftId'),
+      giftId: sessionStorage.getItem('giftId') || '',
       sessionId: getSessionId(),
       userAgent: navigator.userAgent,
       screenSize: `${window.innerWidth}x${window.innerHeight}`,
@@ -120,7 +123,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         </div>
 
         <div className="flex justify-end">
-          <button onClick={() => handleSubmit('')} disabled={!feedbackText.trim() && selectedPositiveOptions.length === 0 && selectedNegativeOptions.length === 0} className={`group px-8 py-4 rounded-2xl font-bold transition-all duration-500 transform hover:scale-105 ${!feedbackText.trim() && selectedPositiveOptions.length === 0 && selectedNegativeOptions.length === 0 ? 'bg-slate-200/80 dark:bg-slate-700/80 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 text-white shadow-2xl shadow-blue-500/30 hover:shadow-3xl hover:shadow-blue-500/40 border border-white/20'}`}>
+          <button onClick={() => handleSubmit()} disabled={!feedbackText.trim() && selectedPositiveOptions.length === 0 && selectedNegativeOptions.length === 0} className={`group px-8 py-4 rounded-2xl font-bold transition-all duration-500 transform hover:scale-105 ${!feedbackText.trim() && selectedPositiveOptions.length === 0 && selectedNegativeOptions.length === 0 ? 'bg-slate-200/80 dark:bg-slate-700/80 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 text-white shadow-2xl shadow-blue-500/30 hover:shadow-3xl hover:shadow-blue-500/40 border border-white/20'}`}>
             <span className="flex items-center justify-center gap-3 group-hover:gap-4 transition-all duration-300">
               <Send className="w-5 h-5 group-hover:animate-pulse" />
               Send Feedback
@@ -130,4 +133,28 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       </div>
     </div>
   );
+}
+
+const style = `
+  @keyframes animate-in {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .transform.animate-in {
+    animation: animate-in 0.5s ease-out forwards;
+  }
+`;
+
+// Inject styles into the head
+if (typeof window !== 'undefined') {
+  const styleSheet = document.createElement("style");
+  styleSheet.type = "text/css";
+  styleSheet.innerText = style;
+  document.head.appendChild(styleSheet);
 }
