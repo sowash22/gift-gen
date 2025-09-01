@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import { useState, useEffect, useRef, FC, useCallback } from 'react';
+import { useState, useEffect, useRef, FC } from 'react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { Nunito } from 'next/font/google';

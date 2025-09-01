@@ -160,7 +160,7 @@ export default function Home() {
       
       const data = await response.json();
       
-      const newGifts = data.gifts.map((gift: any) => ({
+      const newGifts = data.gifts.map((gift: Gift) => ({
         id: gift.id || uuidv4(),
         name: gift.name,
         description: gift.description,

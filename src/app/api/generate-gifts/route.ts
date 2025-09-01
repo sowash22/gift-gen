@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -251,7 +252,7 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
         config: {
           temperature: 0.7,
           maxOutputTokens: 1024,
-          // tools: [groundingTool], // This needs to be at the top level of the request config for Gemini API
+          tools: [groundingTool], // This needs to be at the top level of the request config for Gemini API
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.ARRAY,
@@ -285,7 +286,7 @@ async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateW
           },
           systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format. You MUST use the Google Search tool to find valid, functional URLs for both 'links' and 'images'. Do not make up any URLs. Each gift's 'links' and 'images' array must contain exactly one URL."
         },
-        tools: [groundingTool], // Moved tools to the correct location
+        
       });
 
       if (!result.text) {
@@ -360,71 +361,71 @@ export async function POST(request: NextRequest) {
 }
 
 
-async function saveToDatabase(gifts: Gift[], request: GenerateGiftsRequest): Promise<void> {
-  try {
-    const batch = db.batch();
+// async function saveToDatabase(gifts: Gift[], request: GenerateGiftsRequest): Promise<void> {
+//   try {
+//     const batch = db.batch();
     
-    gifts.forEach(gift => {
-      const docRef = db.collection('gifts').doc();
-      batch.set(docRef, {
-        ...gift,
-        recipient: request.recipient,
-        occasion: request.occasion,
-        vibe: request.vibe,
-        budget: request.budget,
-        description: request.description,
-        createdAt: new Date(),
-        generatedBy: 'llm'
-      });
-    });
+//     gifts.forEach(gift => {
+//       const docRef = db.collection('gifts').doc();
+//       batch.set(docRef, {
+//         ...gift,
+//         recipient: request.recipient,
+//         occasion: request.occasion,
+//         vibe: request.vibe,
+//         budget: request.budget,
+//         description: request.description,
+//         createdAt: new Date(),
+//         generatedBy: 'llm'
+//       });
+//     });
     
-    await batch.commit();
-    console.log(`✅ Saved ${gifts.length} gifts to database`);
-  } catch (error) {
-    console.error('❌ Failed to save to database:', error instanceof Error ? error.message : 'Unknown error');
-    // Don't throw - saving is not critical
-  }
-}
+//     await batch.commit();
+//     console.log(`✅ Saved ${gifts.length} gifts to database`);
+//   } catch (error) {
+//     console.error('❌ Failed to save to database:', error instanceof Error ? error.message : 'Unknown error');
+//     // Don't throw - saving is not critical
+//   }
+// }
 
 
-async function saveToLocalDatabse(gifts: Gift[], request: GenerateGiftsRequest) {
-  try {
-    // 1. Fetch everything from Firestore
-    const snapshot = await db.collection('gifts').get();
-    const firestoreRecords = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+// async function saveToLocalDatabse(gifts: Gift[], request: GenerateGiftsRequest) {
+//   try {
+//     // 1. Fetch everything from Firestore
+//     const snapshot = await db.collection('gifts').get();
+//     const firestoreRecords = snapshot.docs.map(doc => ({
+//       id: doc.id,
+//       ...doc.data(),
+//     }));
 
-    // 2. Map newly generated gifts into same format
-    const newRecords = gifts.map(g => ({
-      ...g,
-      recipient: request.recipient,
-      occasion: request.occasion,
-      vibe: request.vibe,
-      budget: request.budget,
-      description: request.description,
-      createdAt: new Date().toISOString(),
-      generatedBy: 'llm-local'
-    }));
+//     // 2. Map newly generated gifts into same format
+//     const newRecords = gifts.map(g => ({
+//       ...g,
+//       recipient: request.recipient,
+//       occasion: request.occasion,
+//       vibe: request.vibe,
+//       budget: request.budget,
+//       description: request.description,
+//       createdAt: new Date().toISOString(),
+//       generatedBy: 'llm-local'
+//     }));
 
-    // 3. Merge Firestore + new local records (avoid duplicates by ID)
-    const allRecords = [...firestoreRecords, ...newRecords];
-    const uniqueRecords = Object.values(
-      allRecords.reduce((acc, rec) => {
-        acc[rec.id || uuidv4()] = rec;
-        return acc;
-      }, {} as Record<string, any>)
-    );
+//     // 3. Merge Firestore + new local records (avoid duplicates by ID)
+//     const allRecords = [...firestoreRecords, ...newRecords];
+//     const uniqueRecords = Object.values(
+//       allRecords.reduce((acc, rec) => {
+//         acc[rec.id || uuidv4()] = rec;
+//         return acc;
+//       }, {} as Record<string, any>)
+//     );
 
-    // 4. Write to local JSON file
-    await fs.promises.writeFile(localDbPath, JSON.stringify(uniqueRecords, null, 2));
-    console.log(`✅ Dumped ${uniqueRecords.length} records from Firestore into local database`);
+//     // 4. Write to local JSON file
+//     await fs.promises.writeFile(localDbPath, JSON.stringify(uniqueRecords, null, 2));
+//     console.log(`✅ Dumped ${uniqueRecords.length} records from Firestore into local database`);
 
-  } catch (err) {
-    console.error('❌ Failed to dump Firestore into local database:', err);
-  }
-}
+//   } catch (err) {
+//     console.error('❌ Failed to dump Firestore into local database:', err);
+//   }
+// }
 
 
 async function getFromLocalDatabase(request: GenerateGiftsRequest): Promise<Gift[]> {

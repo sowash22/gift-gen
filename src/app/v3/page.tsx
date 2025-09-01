@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import { useState, useEffect, useRef, FC, useCallback } from 'react';
+import { useState, useEffect, FC } from 'react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { Nunito } from 'next/font/google';
@@ -107,7 +108,7 @@ export default function Home() {
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
       if (data.gifts && data.gifts.length > 0) {
-        setGeneratedGifts(data.gifts.map((g: any) => ({ ...g, id: g.id || uuidv4() })));
+        setGeneratedGifts(data.gifts.map((g: Gift) => ({ ...g, id: g.id || uuidv4() })));
       } else {
         setNoResults(true);
       }
@@ -153,7 +154,7 @@ export default function Home() {
               {noResults ? (
                 <div className="text-center m-auto">
                   <h2 className="text-3xl font-bold mb-4">Nothing Sprouted</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-8">Let's plant again!</p>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8">Let&rsquo;s plant again!</p>
                   <div className="flex items-center justify-center gap-4">
                     <button onClick={restart} className="px-6 py-3 font-bold rounded-full bg-green-500 text-white hover:scale-105 transition-transform">
                       Try Again
