@@ -50,7 +50,7 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
     `The response MUST be a JSON array of objects, strictly following the schema described in the system instruction.`,
     `Each gift object must include 'name', 'description', 'links', and 'images'.`,
     // Crucial instruction for tool use:
-    `**IMPORTANT**: For 'links' and 'images', you MUST use the available Google Search tool to find ACTUAL, VALID, and FUNCTIONAL URLs. Do not make up URLs. Search for the product or a very similar product to get a real purchase link and a real product image.`,
+    `**IMPORTANT**: For 'links' and 'images', you MUST use the available Google Search tool to find ACTUAL, VALID, and FUNCTIONAL URLs that are verified by Google. Do not make up URLs. Search for the product or a very similar product to get a real purchase link and a real product image.`,
     request.recipient ? `Recipient: ${request.recipient}` : '',
     request.occasion ? `Occasion: ${request.occasion}` : '',
     request.vibe?.length ? `Vibe/Style: ${request.vibe.join(', ')}` : '', // Corrected to join array

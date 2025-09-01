@@ -13,5 +13,4 @@ export interface GenerateGiftsRequest {
   vibe?: string[];
   description?: string;
   previouslyGeneratedGifts?: string[];
-  budget?: number;
 }
