@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
 import { useState, useEffect, useRef, FC } from 'react';
@@ -12,9 +13,6 @@ const nunito = Nunito({ subsets: ['latin'], weight:['400','500','600','700'] });
 
 // --- Interfaces & Types ---
 interface Gift { id: string; name: string; description: string; estimatedPrice?: string; tags?: string[]; links?: string[]; images?: string[]; }
-
-// --- Constants ---
-const loadingTexts = ["Finding amazing gifts... 🎁", "Curating perfect matches... ✨", "Almost there... 🌟"];
 
 // --- Reusable Components ---
 const Background = () => (
@@ -61,19 +59,21 @@ export default function Home() {
 
   const steps = [
     { key: 'recipient', question: "Who are we celebrating?", options: (process.env.NEXT_PUBLIC_GIFT_RECIPIENTS?.split(',').map(item => item.split(':')[0]) || []) },
-    { key: 'occasion', question: "What&apos;s the special occasion?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
-    { key: 'vibe', question: "What&apos;s the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'occasion', question: "What's the special occasion?", options: (process.env.NEXT_PUBLIC_GIFT_OCCASIONS?.split(',').map(item => item.split(':')[0]) || []) },
+    { key: 'vibe', question: "What's the vibe?", options: (process.env.NEXT_PUBLIC_GIFT_VIBES?.split(',').map(item => item.split(':')[0]) || []) },
   ];
+
+  const loadingTexts = ["Finding amazing gifts... 🎁", "Curating perfect matches... ✨", "Almost there... 🌟"];
 
   useEffect(() => {
     if (!isGenerating) return;
     const interval = setInterval(() => setLoadingIndex(prev => (prev + 1) % loadingTexts.length), 2500);
     return () => clearInterval(interval);
-  }, [isGenerating]);
+  }, [isGenerating, loadingTexts.length]);
 
   useEffect(() => {
     if (isGenerating) setLoadingText(loadingTexts[loadingIndex]);
-  }, [loadingIndex, isGenerating]);
+  }, [loadingIndex, isGenerating, loadingTexts]);
 
   useEffect(() => {
     if (isInitialLoad.current || showResults === false) return;
@@ -93,7 +93,6 @@ export default function Home() {
 
   const generateGifts = async (discoverMore = false) => {
     if (isGenerating || !form.recipient || !form.occasion) return;
-    setShowResults(false);
     setIsGenerating(true);
     setNoResults(false);
     setLoadingIndex(0);
@@ -150,9 +149,9 @@ export default function Home() {
           GiftGarden
         </motion.div>
         <motion.button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-white/90 dark:hover:bg-gray-700/90 transition-all shadow-sm">
-          <div className="relative w-5 h-5">
-            <Sun className="absolute inset-0 text-amber-500 dark:opacity-0 dark:scale-0 transition-all duration-300" />
-            <Moon className="absolute inset-0 text-blue-400 opacity-0 scale-0 dark:opacity-100 dark:scale-100 transition-all duration-300" />
+          <div className="relative w-5 h-5 flex items-center justify-center">
+            <Sun className="absolute w-5 h-5 text-amber-500 dark:opacity-0 dark:scale-0 transition-all duration-300" />
+            <Moon className="absolute w-5 h-5 text-blue-400 opacity-0 scale-0 dark:opacity-100 dark:scale-100 transition-all duration-300" />
           </div>
         </motion.button>
       </header>
@@ -170,14 +169,13 @@ export default function Home() {
               <div className="mb-8"><motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg"><Sparkles className="w-10 h-10 text-white" /></motion.div><motion.div key={loadingText} {...fadeAnim}><h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200">{loadingText}</h2></motion.div></div>
             </motion.div>
           ) : showResults ? (
-            <motion.div ref={resultsRef} key="results" {...fadeAnim} className="w-full max-w-7xl flex flex-col flex-grow items-center justify-center">
+            <motion.div ref={resultsRef} key="results" {...fadeAnim} className="w-full max-w-7xl">
               {noResults ? (
-                <div className="text-center m-auto">
-                  <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"><Heart className="w-12 h-12 text-white" /></div>
+                <div className="text-center max-w-lg mx-auto">
                   <h2 className="text-3xl font-bold mb-4 text-gray-700 dark:text-gray-200">Oops! Nothing found</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-8">Let&apos;s try different preferences and find something amazing!</p>
+                  {/* <p className="text-gray-600 dark:text-gray-400 mb-8">Let's try different preferences and find something amazing!</p> */}
                   <div className="flex items-center justify-center gap-4">
-                    <button onClick={() => generateGifts()} className="px-8 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg">
+                    <button onClick={() => generateGifts(false)} className="px-8 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full font-semibold hover:from-green-500 hover:to-emerald-600 transition-all shadow-lg">
                       Try Again
                     </button>
                     <button onClick={restart} className="px-8 py-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -189,7 +187,7 @@ export default function Home() {
                 <>
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
                     <div className="flex items-center justify-center gap-3 mb-4"><h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Perfect gifts found!</h2></div>
-                    <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length} ✨</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-lg">Page {currentPage + 1} of {giftPages.length}</p>
                   </motion.div>
                   <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
                     {giftPages[currentPage]?.map((gift, index) => <motion.div key={gift.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.4 }}><GiftCard gift={gift} onClick={() => setActiveGift(gift)} /></motion.div>)}
@@ -205,7 +203,7 @@ export default function Home() {
             </motion.div>
           ) : (
             <motion.div key="form" {...fadeAnim} className="w-full max-w-4xl text-center">
-              <motion.div className="mb-12 h-24 flex items-center justify-center"><AnimatePresence mode="wait"><motion.h1 key={step} {...fadeAnim} transition={{ duration: 0.4 }} className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">{currentStepData.question}</motion.h1></AnimatePresence></motion.div>
+              <motion.div className="mb-12 h-12 flex items-center justify-center"><AnimatePresence mode="wait"><motion.h1 key={step} {...fadeAnim} transition={{ duration: 0.4 }} className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-gray-100">{currentStepData.question}</motion.h1></AnimatePresence></motion.div>
               
               <div className="min-h-[250px] flex flex-col justify-center">
                 <motion.div className="flex flex-wrap justify-center gap-4 max-w-3xl mx-auto" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
