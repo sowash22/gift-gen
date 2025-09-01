@@ -92,14 +92,6 @@ export default function Home() {
     if (isGenerating) setLoadingText(loadingTexts[loadingIndex]);
   }, [loadingIndex, isGenerating, loadingTexts]);
 
-  useEffect(() => {
-    // Scroll only if we have results and the current page has changed,
-    // and it's not the initial load.
-    if (!isInitialLoad.current && resultsRef.current && giftPages.length > 0 && currentPage < giftPages.length) {
-      resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [currentPage, giftPages]); // Dependencies: currentPage and giftPages
-
   const handleSelect = (key: keyof typeof form, value: string) => {
     if (key === 'vibe') {
       setForm(prev => ({ ...prev, vibe: prev.vibe.includes(value) ? prev.vibe.filter(v => v !== value) : [...prev.vibe, value] }));
@@ -135,8 +127,13 @@ export default function Home() {
           setCurrentPage(newPageIndex);
           // Add a scroll trigger here specifically for discoverMore
           setTimeout(() => {
-            resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 100); // Small delay to ensure rendering
+            console.log('setTimeout (Discover More): Attempting to scroll to top of window.');
+            // Scroll the window to the top, accounting for the fixed header height (approx 80px)
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // If a specific element needs to be at the top *below* the header,
+            // we might need to scroll to resultsRef.current.offsetTop - headerHeight
+            // For now, let's try scrolling window to 0.
+          }, 800); // Increased delay to 800ms for more reliable rendering
         } else {
           setGiftPages([newGifts]);
           setCurrentPage(0);
