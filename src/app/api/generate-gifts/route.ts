@@ -2,13 +2,23 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { GoogleGenAI, Type } from '@google/genai';
 import { db } from '@/lib/firebaseAdmin';
 import fs from 'fs';
 import path from 'path';
 
 
 const localDbPath = path.resolve(process.cwd(), 'localdb.json')
+const INFERENCE_TIMEOUT_MS = 30_000;
+const SYSTEM_PROMPT = `You are a helpful gift recommendation assistant. Return only a JSON array of thoughtful, personalized gift suggestions.
+
+Each gift must contain exactly these fields:
+- "name": a creative gift name
+- "description": two or three sentences explaining why it fits
+- "links": an array containing one valid direct purchase URL
+- "images": an array containing one valid product or stock image URL
+
+Do not use markdown or invent URLs. Every URL must start with http or https.`;
+
 interface GenerateGiftsRequest {
   recipient?: string;
   occasion?: string;
@@ -38,9 +48,10 @@ interface GenerationResult {
   modelUsed?: string;
 }
 
-// Initialize AI client
-const geminiApiKey = process.env.GEMINI_API_KEY || '';
-const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+interface CompletionResponse {
+  model?: string;
+  choices?: Array<{ message?: { content?: unknown } }>;
+}
 
 // --- START: MODIFIED FUNCTIONS ---
 
@@ -49,8 +60,7 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
     `Generate ${giftCount} unique and creative gift ideas based on the following criteria.`,
     `The response MUST be a JSON array of objects, strictly following the schema described in the system instruction.`,
     `Each gift object must include 'name', 'description', 'links', and 'images'.`,
-    // Crucial instruction for tool use:
-    `**IMPORTANT**: For 'links' and 'images', you MUST use the available Google Search tool to find ACTUAL, VALID, and FUNCTIONAL URLs that are verified by Google. Do not make up URLs. Search for the product or a very similar product to get a real purchase link and a real product image. Before providing a URL, confirm its validity and functionality through your search tool. Prioritize URLs from well-known e-commerce sites or reputable image sources.`,
+    `For 'links' and 'images', provide real URLs from well-known retailers or reputable image sources. Do not make up URLs.`,
     request.recipient ? `Recipient: ${request.recipient}` : '',
     request.occasion ? `Occasion: ${request.occasion}` : '',
     request.vibe?.length ? `Vibe/Style: ${request.vibe.join(', ')}` : '', // Corrected to join array
@@ -62,15 +72,15 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
     '- `description`: A brief, compelling description (2-3 sentences) explaining why it\'s a great gift, highlighting its unique meaning and how it perfectly fits the criteria.',
     // '- `estimatedPrice`: An estimated price range (e.g., "$20-$50").',
     // '- `tags`: An array of 3-5 relevant keywords or tags.',
-    '- `links`: An array containing **one** valid, functional purchase URL to a major online retailer (e.g., Google Shopping, Amazon, Target, Walmart, Bestbuy, Etsy, specialized online shops). This link must go directly to a product page and be found via Google Search.',
-    '- `images`: An array containing **one** valid, functional product image URL or a high-quality stock image URL that visually represents the gift. This image URL must be found via Google Search, related to the product link, or a suitable stock image.',
+    '- `links`: An array containing **one** valid, functional purchase URL to a major online retailer (e.g., Google Shopping, Amazon, Target, Walmart, Best Buy, Etsy, or a specialized shop).',
+    '- `images`: An array containing **one** valid, functional product image URL or a high-quality stock image URL that visually represents the gift.',
     '',
     'Ensure each gift idea is:',
     '- Truly creative, unique, and thoughtful.',
     '- Directly relevant to the provided criteria and description.',
     '- A tangible product or a well-defined experience.',
     '- Has all required fields (`name`, `description`, `links`, `images`).',
-    '- Has one valid, functional URL for its `links` array, and one valid, functional URL for its `images` array, both obtained via Google Search.',
+    '- Has one valid, functional URL for its `links` array and one valid, functional URL for its `images` array.',
   ];
 
   if (request.previouslyGeneratedGifts?.length) {
@@ -80,7 +90,7 @@ function buildPrompt(request: GenerateGiftsRequest, giftCount: number): string {
   return parts.filter(Boolean).join('\n');
 }
 
-function parseGeminiResponse(response: string, giftCount: number): Gift[] {
+function parseLLMResponse(response: string, giftCount: number): Gift[] {
   let parsedResponse: any;
   let jsonString = response;
 
@@ -214,111 +224,63 @@ interface GenerateWithLLMResult {
   retryCount: number;
 }
 
-// Define the grounding tool
-const groundingTool = {
-  googleSearch: {}, // This enables the tool
-};
+function v2Endpoint(): string | null {
+  const raw = process.env.BACKEND_API_URL?.trim();
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw);
+    const path = url.pathname.replace(/\/$/, '');
+    const isLocalHttp = url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1');
+    if (path !== '/v2/chat/completions' || (url.protocol !== 'https:' && !isLocalHttp)) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
 
 async function generateWithLLM(request: GenerateGiftsRequest): Promise<GenerateWithLLMResult> {
-  if (!geminiApiKey) {
-    throw new Error('Gemini API key not configured');
-  }
+  const endpoint = v2Endpoint();
+  const apiKey = process.env.CLIENT_API_KEY?.trim();
+  if (!endpoint || !apiKey) throw new Error('Backend inference API is not configured');
 
   const giftCount = parseInt(process.env.NEXT_PUBLIC_NUM_GIFTS_TO_GENERATE || '8', 10);
   const prompt = buildPrompt(request, giftCount);
-  
-  // Define fallback models in order of preference
-  const models = [
-    process.env.GOOGLE_MODEL_1 || 'gemini-2.5-flash-lite',
-    process.env.GOOGLE_MODEL_2 || 'gemini-2.5-flash',
-    process.env.GOOGLE_MODEL_3 || 'gemini-2.5-pro',
-    process.env.GOOGLE_MODEL_4 || 'gemini-2.0-flash-lite',
-    process.env.GOOGLE_MODEL_5 || 'gemini-2.0-flash'
-  ];
+  const provider = process.env.PROVIDER?.trim();
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'X-Client-ID': process.env.CLIENT_ID?.trim() || 'giftgenerator',
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
+      ],
+      stream: false,
+      temperature: 0.7,
+      max_tokens: 2_048,
+      ...(provider ? { provider } : {}),
+    }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(INFERENCE_TIMEOUT_MS),
+  });
 
-  let lastError: Error | null = null;
+  if (!response.ok) throw new Error(`Backend inference request failed with status ${response.status}`);
 
-  // Try each model in sequence
-  for (let attempt = -1; attempt < models.length; attempt++) {
-    const currentModel = models[attempt + 1];
-    
-    try {
-      console.log(`ℹ️ Attempt ${attempt + 1}/5 - Using model: ${currentModel}`);
-      console.log('ℹ️ Using prompt', prompt);
+  const completion = await response.json() as CompletionResponse;
+  const content = completion.choices?.[0]?.message?.content;
+  if (typeof content !== 'string') throw new Error('Backend inference response did not contain text');
 
-      const result = await ai.models.generateContent({
-        model: currentModel,
-        contents: [{ text: prompt }], // Ensure contents is an array of parts
-        config: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-          tools: [groundingTool], // This needs to be at the top level of the request config for Gemini API
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING, description: "A creative name for the gift." },
-                description: { type: Type.STRING, description: "A brief, compelling description explaining why it's a great gift, highlighting its meaning and relevance." },
-                // estimatedPrice: { type: Type.STRING, description: "An estimated price range for the gift (e.g., '$20-$50')." },
-                // tags: { 
-                //   type: Type.ARRAY,
-                //   items: { type: Type.STRING },
-                //   description: "Relevant keywords or tags for the gift."
-                // },
-                links: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING, description: "A single, valid purchase URL found via Google Search." },
-                  minItems: 1, // Ensure at least one link
-                  maxItems: 1, // Ensure exactly one link
-                },
-                images: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING, description: "A single, valid product image URL or stock image URL found via Google Search." },
-                  minItems: 1, // Ensure at least one image
-                  maxItems: 1, // Ensure exactly one image
-                }
-              },
-              required: ["name", "description", "links", "images"], // Explicitly list required properties
-              propertyOrdering: ["name", "description", "links", "images"]
-            }
-          },
-          systemInstruction: "You are a helpful gift recommendation assistant that responds with thoughtful, personalized gift suggestions in structured JSON format. You MUST use the Google Search tool to find valid, functional URLs for both 'links' and 'images'. Do not make up any URLs. Each gift's 'links' and 'images' array must contain exactly one URL."
-        },
-        
-      });
-
-      if (!result.text) {
-        throw new Error(`No text response from Gemini API using model: ${currentModel}`);
-      }
-
-      console.log('Raw Gemini Response Text:', result.text); // Log raw response for debugging
-
-      const parsedResponse = parseGeminiResponse(result.text, giftCount);
-      console.log(`✅ Model used - ${currentModel} retry count - ${attempt} number of gifts generated - ${parsedResponse.length}`);
-      
-      return {
-        gifts: parsedResponse,
-        modelUsed: currentModel,
-        retryCount: attempt
-      };
-
-    } catch (error) {
-      lastError = error as Error;
-      console.error(`❌ Attempt ${attempt + 1} failed with model ${currentModel}:`, error);
-      
-      // If this is not the last attempt, continue to next model
-      if (attempt < models.length - 1) {
-        console.log(`🔄 Retrying with next model...`);
-        continue;
-      }
-    }
-  }
-
-  // If all retry attempts failed, throw the last error
-  console.error('❌ All retry attempts failed');
-  throw new Error(`Failed to generate gifts after ${models.length} attempts. Last error: ${lastError?.message}`);
+  const gifts = parseLLMResponse(content, giftCount);
+  return {
+    gifts,
+    modelUsed: completion.model || provider || 'backend',
+    retryCount: 0,
+  };
 }
 
 
